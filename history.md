@@ -6,6 +6,29 @@ the source code alone. New decisions go at the top, dated. Each entry should ans
 
 ---
 
+## 2026-04-28 — DeepSeek thinking mode through OpenAICompatProvider
+
+### Decision: DeepSeek slots in by extending OpenAICompatProvider, not adding a new provider class
+**Choice:** `OpenAICompatProvider` gains three optional kwargs — `extra_body`, `reasoning_effort`, `preserve_reasoning_content` — plus a reasoning-accumulation branch in the streaming loop and a DeepSeek-specific KV-cache field in `_norm_usage`. Each piece is registry-driven and defaults to a no-op for OpenAI/Kimi/GPT-5.
+
+**Why:** DeepSeek's `/chat/completions` is OpenAI-shape compatible for the parts that matter (streaming, function calls, role: tool results). The deltas it emits in thinking mode add `reasoning_content` chunks the standard OpenAI client surfaces via `getattr(delta, "reasoning_content", None)`, so we don't need a separate transport. Forking a `DeepSeekProvider` would have duplicated ~200 lines of streaming/tool-call accumulation logic for one new field.
+
+**Rejected:** A dedicated `DeepSeekProvider` class. Tempting because thinking mode's quirks (round-tripping `reasoning_content` on tool-call turns or DeepSeek 400s the next request) feel provider-specific. But those quirks are gated by per-model registry flags (`preserve_reasoning_content`), not by the provider class — so the gating belongs at the registry level. One provider, multiple capability flags, beats N providers each repeating the same OpenAI-shape boilerplate.
+
+### Decision: Reasoning content is preserved server-side, never crossed to the SSE stream
+**Choice:** When a DeepSeek delta contains `reasoning_content`, the provider accumulates it into a per-call `reasoning_parts` list and `continue`s — it is *not* yielded as `text_delta`. When the assistant turn finishes, if (a) the registry opted in via `preserve_reasoning_content`, (b) this turn made tool calls, and (c) reasoning was actually streamed, the concatenation is attached to the assistant message as `reasoning_content` so it round-trips to DeepSeek on the next request.
+
+**Why:** DeepSeek docs require `reasoning_content` to come back on tool-call turns (otherwise the next request 400s). At the same time, raw chain-of-thought is provider-protocol state, not user-facing answer text — surfacing it to the browser would leak working-out the model assumes is private. The split keeps the engine correct for multi-hop tool use *and* keeps the UI clean.
+
+**Rejected:** Streaming reasoning to the browser as a separate `reasoning_delta` event so a "thinking…" UI could render it live. Cute, but it bakes provider-protocol leakage into the public API and would have to be sanitized at every UI layer. A `tool_use_start` event already exists for the "the agent is doing something" affordance — that's enough.
+
+### Decision: Default sampling params are not sent for DeepSeek thinking mode
+**Choice:** No `temperature`, `top_p`, `presence_penalty`, or `frequency_penalty` are passed for the `deepseek-v4-flash` model.
+
+**Why:** DeepSeek docs state those parameters have no effect in thinking mode. Sending them is harmless wire bloat at best, confusing-to-debug at worst. The provider doesn't hardcode these today (they're only added if a caller passes them), so this is a documentation rule for future contributors rather than a code change.
+
+---
+
 ## 2026-04-28 — Multi-provider wiring + reusable profiles
 
 ### Decision: Agent profile is separate from the engine

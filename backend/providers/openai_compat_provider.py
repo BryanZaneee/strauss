@@ -26,11 +26,17 @@ class OpenAICompatProvider:
         token_param: str = "max_completion_tokens",
         stream_options: bool = True,
         include_tool_result_name: bool = False,
+        extra_body: dict | None = None,
+        reasoning_effort: str | None = None,
+        preserve_reasoning_content: bool = False,
         client: Any | None = None,
     ) -> None:
         self.token_param = token_param
         self.stream_options = stream_options
         self.include_tool_result_name = include_tool_result_name
+        self.extra_body = extra_body
+        self.reasoning_effort = reasoning_effort
+        self.preserve_reasoning_content = preserve_reasoning_content
         self.client = client or AsyncOpenAI(
             api_key=os.environ[api_key_env],
             base_url=base_url,
@@ -74,10 +80,15 @@ class OpenAICompatProvider:
         }
         if self.stream_options:
             request["stream_options"] = {"include_usage": True}
+        if self.reasoning_effort:
+            request["reasoning_effort"] = self.reasoning_effort
+        if self.extra_body:
+            request["extra_body"] = self.extra_body
 
         stream = await self.client.chat.completions.create(**request)
 
         content_parts: list[str] = []
+        reasoning_parts: list[str] = []
         tool_calls: dict[int, dict[str, Any]] = {}
         announced_tool_names: set[str] = set()
         stop_reason = "end_turn"
@@ -95,6 +106,11 @@ class OpenAICompatProvider:
 
                 delta = getattr(choice, "delta", None)
                 if delta is None:
+                    continue
+
+                reasoning = getattr(delta, "reasoning_content", None)
+                if reasoning:
+                    reasoning_parts.append(reasoning)
                     continue
 
                 text = getattr(delta, "content", None)
@@ -143,6 +159,10 @@ class OpenAICompatProvider:
         if completed_tool_calls:
             assistant_msg["tool_calls"] = completed_tool_calls
             stop_reason = "tool_use"
+        # DeepSeek thinking mode requires reasoning_content to round-trip on tool-call turns
+        # or the next request 400s. Other providers don't accept the field, so this is gated.
+        if self.preserve_reasoning_content and completed_tool_calls and reasoning_parts:
+            assistant_msg["reasoning_content"] = "".join(reasoning_parts)
         messages.append(assistant_msg)
 
         for i, tc in enumerate(completed_tool_calls):
@@ -178,9 +198,11 @@ def _norm_usage(u: Any) -> dict:
     output_tokens = getattr(u, "completion_tokens", None)
     if output_tokens is None:
         output_tokens = getattr(u, "output_tokens", 0) or 0
+    # DeepSeek surfaces KV-cache hits as prompt_cache_hit_tokens; absent on other providers.
+    cache_hit = getattr(u, "prompt_cache_hit_tokens", 0) or 0
     return {
         "input_tokens": input_tokens or 0,
         "output_tokens": output_tokens or 0,
-        "cache_read_input_tokens": 0,
+        "cache_read_input_tokens": cache_hit,
         "cache_creation_input_tokens": 0,
     }
