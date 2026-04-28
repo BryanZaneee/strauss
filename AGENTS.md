@@ -4,7 +4,7 @@ This file is for Codex (and other agents) working in this repo. Read it before m
 
 ## Project Overview
 
-Strauss is a candidate-advocate agent for Bryan Zane Smith. It lives at `bryanzane.com/strauss`, answers recruiter questions from a local knowledge base, and supports multiple LLM providers behind one chat UI.
+Strauss is a portable framework for reusable agentic AI across multiple model providers. Bryan's personal site can run one profile on top of it, but the engine is meant to support many professional agent profiles with different knowledge bases and tools.
 
 ## Tech Stack
 
@@ -79,7 +79,7 @@ Agent persona and KB root are loaded from [`profiles/`](profiles/) through [`bac
 - **Follow the agent practices checklist.** [`docs/agent_best_practices.md`](docs/agent_best_practices.md) captures the standing rules for API boundaries, model selection, prompts, tools, streaming, retrieval, evals, and portability.
 - **All KB filesystem ops go through `_safe_resolve()`.** It rejects `..`, absolute paths, and symlink escapes. Never bypass it.
 - **The provider mutates `messages` inside `stream()`.** After the API call completes, append the assistant turn to `messages` *before* yielding `tool_use_complete` events. Mirror this contract in any new provider — otherwise the next API call rejects with "tool_result without preceding tool_use."
-- **Loop bound: `MAX_TOOL_HOPS = 8`.** A real recruiter question never needs more than 3 hops. The cap is a runaway-loop safety net.
+- **Loop bound: `MAX_TOOL_HOPS = 8`.** A normal profile-specific question should rarely need more than 3 hops. The cap is a runaway-loop safety net.
 - **No `Co-Authored-By: Codex` in commits.** Per repo owner's preference.
 
 ## Reading order for a new contributor / agent

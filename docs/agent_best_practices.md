@@ -1,6 +1,6 @@
 # Agent Best Practices
 
-This project treats Strauss as one profile on top of a reusable agent engine. Keep these practices in place as the engine grows.
+This project treats each agent as a profile on top of a reusable engine. Keep these practices in place as the engine grows.
 
 ## API Boundary
 
@@ -10,7 +10,7 @@ This project treats Strauss as one profile on top of a reusable agent engine. Ke
 
 ## Model Selection
 
-- Use a balanced model for the default recruiter chat path.
+- Use a balanced model for the default user-facing chat path.
 - Use higher-intelligence models for complex multi-step planning, deep codebase analysis, and evaluation.
 - Use faster/cheaper models for lightweight routing, dataset generation, and high-volume background tasks.
 - Prefer per-task routing over assuming one model is best for every workflow.
@@ -21,7 +21,7 @@ This project treats Strauss as one profile on top of a reusable agent engine. Ke
 - Make prompts clear, direct, and specific. Lead with the task, then constraints.
 - Structure long prompts with explicit sections such as XML-style tags.
 - Use examples only when they clarify formatting, edge cases, or tone.
-- Keep factual agents low-creativity by default; recruiter answers should be grounded and repeatable.
+- Keep factual agents low-creativity by default; knowledge-base answers should be grounded and repeatable.
 
 ## Conversation State
 

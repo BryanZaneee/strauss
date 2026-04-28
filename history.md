@@ -11,7 +11,7 @@ the source code alone. New decisions go at the top, dated. Each entry should ans
 ### Decision: Agent profile is separate from the engine
 **Choice:** persona, welcome copy, suggestions, system prompt, and KB root now live under `profiles/<id>/`. The reusable engine receives an `AgentProfile` and passes `profile.kb_root` into tool dispatch.
 
-**Why:** Strauss should be the first profile on top of a reusable agent framework, not the framework itself. A future Marathon advisor can add a profile package and point at a different KB without forking the provider loop.
+**Why:** Strauss should be a reusable agent framework, not a one-off bot. A future social media video manager, customer support bot, or internal operations agent can add a profile package and point at a different KB without forking the provider loop.
 
 ### Decision: Profiles explicitly allow tools
 **Choice:** `profile.json` declares the tools available to that agent. Providers translate only those schemas, and the tool dispatcher rejects calls outside the active profile's allowlist.
@@ -76,7 +76,7 @@ raw repomix XMLs (tool result with line-slicing)     ← actual source for "show
 ### Decision: `MAX_TOOL_HOPS = 8` as a runaway-loop safety net
 **Choice:** the agent loop is bounded by [`MAX_TOOL_HOPS`](backend/config.py).
 
-**Why:** a real recruiter question should never need more than ~3 hops (one specialized tool call + at most one slice of XML). 8 is generous for legitimate use, tight enough to catch a model that's stuck in a tool-thrashing loop. Loop terminates with an explicit `error` event so the frontend can surface it cleanly.
+**Why:** a normal profile-specific question should rarely need more than ~3 hops (one specialized tool call + at most one source read). 8 is generous for legitimate use, tight enough to catch a model that's stuck in a tool-thrashing loop. Loop terminates with an explicit `error` event so the frontend can surface it cleanly.
 
 ### Decision: In-memory sessions, swept lazily per request
 **Choice:** `SESSIONS: dict[str, dict]` lives in process memory. Stale sessions (idle > `SESSION_TTL`) are pruned at the top of each `/api/chat` call.

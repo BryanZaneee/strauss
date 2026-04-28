@@ -1,14 +1,16 @@
 # Strauss
 
-Strauss is an AI agent for getting me a job.
+Strauss is a portable framework for building agentic AI apps across different model providers.
 
-It answers recruiter questions from a local knowledge base of my resume, projects, codebases, and notes. The goal is simple: give the model exactly the context it needs, let it use tools, and make it say when it does not know something instead of inventing a perfect-sounding answer.
+The goal is simple: define an agent profile, give it a focused knowledge base and toolset, then run it through Claude, OpenAI, Gemini, or Kimi without rewriting the workflow each time.
 
 ## Why I Made It
 
 Agentic AI can fall apart when context gets messy. A larger context window does not solve that by itself; it can turn into a massive stack of papers where the important details get missed.
 
-Strauss is built around context management. The agent profile, knowledge base, model providers, and tools are separated so the engine can be reused later for other agents, like a game advisor or project assistant.
+Strauss is built around context management. Profiles, knowledge bases, model providers, and tools are separated so the same engine can be reused for different professional workflows, like a social media video manager, customer support bot, sales assistant, or internal operations agent.
+
+I will use it personally on my site, but the framework is meant to move anywhere.
 
 ## What It Does
 
@@ -16,7 +18,7 @@ Strauss is built around context management. The agent profile, knowledge base, m
 - Supports Claude, OpenAI, Gemini, and Kimi through one provider interface
 - Keeps API keys on the server, never in the browser
 - Uses profile-specific prompts, KB roots, and tool allowlists
-- Reads/searches a local knowledge base instead of relying on model memory
+- Reads/searches local knowledge bases instead of relying on model memory
 - Keeps the core agent loop small enough to understand and change
 
 ## Run It
@@ -61,7 +63,7 @@ Open `http://localhost:8000`.
 ```text
 backend/    agent loop, API, providers, tools, KB access
 profiles/   agent personas and tool allowlists
-kb/         local knowledge base
+kb/         local knowledge bases
 web/        static chat UI
 tests/      pytest suite
 docs/       architecture notes and agent practices
