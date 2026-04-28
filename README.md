@@ -6,9 +6,7 @@ The goal is simple: define an agent profile, give it a focused local knowledge b
 
 ## Why I Made It
 
-Agentic AI can fall apart when context gets messy. A larger context window does not solve that by itself; it can turn into a massive stack of papers where the important details get missed.
-
-Strauss is built around context management. Profiles, knowledge bases, model providers, and tools are separated so the same engine can be reused for different professional workflows, like a social media video manager, customer support bot, sales assistant, internal operations agent, or personal site agent.
+Strauss is built around portability and usability. Profiles, knowledge bases, model providers, and tools are separated so the same engine can be reused for different professional workflows, like a social media video manager, customer support bot, sales assistant, internal operations agent, or personal site agent.
 
 I will use it personally on my site, but the framework is meant to move anywhere.
 
@@ -25,7 +23,7 @@ I will use it personally on my site, but the framework is meant to move anywhere
 
 ## Privacy Boundary
 
-This public repo intentionally does **not** include Bryan's personal knowledge base, resume files, private codebase XML dumps, API keys, or deployment secrets.
+This public repo intentionally does **not** include my personal knowledge base, resume files, private codebase XML dumps, API keys, or deployment secrets found for my personal site.
 
 The `kb/` directory is ignored by git. To run a real profile, create your own local KB that matches the profile's `kb_root`:
 
