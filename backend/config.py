@@ -22,6 +22,13 @@ MAX_TOOL_HOPS: int = int(os.environ.get("MAX_TOOL_HOPS", "8"))
 SESSION_TTL: int = int(os.environ.get("SESSION_TTL_SECONDS", "1800"))
 MAX_TURNS_PER_SESSION: int = int(os.environ.get("MAX_TURNS_PER_SESSION", "40"))
 DAILY_TOKEN_BUDGET: int = int(os.environ.get("DAILY_TOKEN_BUDGET", "5000000"))
+MAX_ACTIVE_SESSIONS: int = int(os.environ.get("MAX_ACTIVE_SESSIONS", "200"))
+
+# Per-IP rate limit on POST /api/chat. slowapi syntax: "<count>/<period>" joined by ";".
+RATE_LIMIT_CHAT: str = os.environ.get("RATE_LIMIT_CHAT", "10/minute;100/hour")
+RATE_LIMIT_ENABLED: bool = os.environ.get("RATE_LIMIT_ENABLED", "1") == "1"
+
+LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO")
 
 ALLOWED_ORIGINS: list[str] = [
     o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()

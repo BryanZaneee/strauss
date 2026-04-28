@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 .venv/
 __pycache__/
 *.pyc
@@ -11,3 +13,9 @@ __pycache__/
 dist/
 build/
 uv.lock.bak
+
+# Local/private runtime data. Public profiles should document their expected
+# shape, but personal knowledge bases, XML codebase dumps, resumes, and browser
+# test artifacts do not belong in the public repo.
+kb/
+.playwright-mcp/

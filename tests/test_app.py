@@ -64,6 +64,8 @@ def client(monkeypatch):
     from backend import app as app_module
 
     importlib.reload(app_module)
+    # Disable rate limit by default; the dedicated rate-limit test re-enables it.
+    app_module.limiter.enabled = False
     return TestClient(app_module.app), app_module
 
 
@@ -179,3 +181,162 @@ class TestChat:
         sess = app_module.SESSIONS["session-grow"]
         assert len(sess["messages"]) == 2
         assert sess["messages"][0]["role"] == "user"
+
+
+# --------------------------------------------------------------------------- #
+# Abuse protection: rate limit, token budget, session capacity
+# --------------------------------------------------------------------------- #
+
+
+class _LoopFake:
+    """Like FakeProvider but emits the same canned turn forever — useful when a
+    test issues many sequential chat requests."""
+
+    def __init__(self, turn: list[Event]) -> None:
+        self.turn = turn
+
+    async def stream(self, **kwargs: Any) -> AsyncIterator[Event]:
+        kwargs["messages"].append({"role": "assistant", "content": "<scripted>"})
+        for ev in self.turn:
+            yield ev
+
+    def format_user(self, text: str) -> dict:
+        return {"role": "user", "content": text}
+
+    def append_tool_results(self, messages: list, results: list[ToolResult]) -> None:
+        messages.append({"role": "user", "content": [r.tool_use_id for r in results]})
+
+    def tools_for_provider(self, profile: AgentProfile) -> list[dict]:
+        return SCHEMAS
+
+    def system_for_provider(self, profile: AgentProfile) -> Any:
+        return "test-system"
+
+
+class TestAbuseProtection:
+    def test_budget_endpoint_reports_stats(self, client):
+        c, _ = client
+        r = c.get("/api/budget")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["limit"] > 0
+        assert body["used"] >= 0
+        assert body["remaining"] >= 0
+        assert "date" in body
+
+    def test_budget_exhausted_returns_503(self, client, monkeypatch):
+        c, app_module = client
+        from backend.budget import TOKEN_BUDGET
+
+        # Force exhaustion by burning the whole limit.
+        TOKEN_BUDGET.record(TOKEN_BUDGET.daily_limit)
+
+        fake = FakeProvider(
+            [[{"type": "message_done", "stop_reason": "end_turn"}]]
+        )
+        monkeypatch.setattr(app_module, "get_provider", lambda mid: fake)
+
+        r = c.post(
+            "/api/chat",
+            json={"session_id": "s-budget", "message": "hi", "model": "claude-sonnet-4-5"},
+        )
+        assert r.status_code == 503
+        assert "budget" in r.json()["detail"].lower()
+
+    def test_budget_records_actual_usage(self, client, monkeypatch):
+        c, app_module = client
+        from backend.budget import TOKEN_BUDGET
+
+        fake = _LoopFake(
+            [
+                {"type": "text_delta", "text": "hi"},
+                {
+                    "type": "usage",
+                    "usage": {
+                        "input_tokens": 100,
+                        "output_tokens": 50,
+                        "cache_read_input_tokens": 0,
+                        "cache_creation_input_tokens": 0,
+                    },
+                },
+                {"type": "message_done", "stop_reason": "end_turn"},
+            ]
+        )
+        monkeypatch.setattr(app_module, "get_provider", lambda mid: fake)
+
+        before = TOKEN_BUDGET.stats()["used"]
+        with c.stream(
+            "POST",
+            "/api/chat",
+            json={"session_id": "s-record", "message": "hi", "model": "claude-sonnet-4-5"},
+        ) as r:
+            list(r.iter_bytes())
+
+        after = TOKEN_BUDGET.stats()["used"]
+        assert after - before == 150
+
+    def test_session_capacity_returns_503(self, client, monkeypatch):
+        c, app_module = client
+
+        # Cap at 1 active session, fill it.
+        monkeypatch.setattr(app_module, "MAX_ACTIVE_SESSIONS", 1)
+        import time as _time
+
+        app_module.SESSIONS["existing"] = {
+            "messages": [],
+            "last_seen": _time.time(),
+            "provider": "anthropic",
+            "profile": "strauss",
+        }
+
+        fake = FakeProvider(
+            [[{"type": "message_done", "stop_reason": "end_turn"}]]
+        )
+        monkeypatch.setattr(app_module, "get_provider", lambda mid: fake)
+
+        # New session should be rejected.
+        r = c.post(
+            "/api/chat",
+            json={"session_id": "s-new", "message": "hi", "model": "claude-sonnet-4-5"},
+        )
+        assert r.status_code == 503
+        assert "capacity" in r.json()["detail"].lower()
+
+    def test_rate_limit_returns_429(self, monkeypatch):
+        # Reload with a tiny per-IP limit so we can exhaust it cheaply.
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        monkeypatch.setenv("RATE_LIMIT_CHAT", "2/minute")
+        monkeypatch.setenv("RATE_LIMIT_ENABLED", "1")
+
+        import importlib
+        from backend import config
+
+        importlib.reload(config)
+        from backend import app as app_module
+
+        importlib.reload(app_module)
+        c = TestClient(app_module.app)
+
+        fake = _LoopFake(
+            [{"type": "message_done", "stop_reason": "end_turn"}]
+        )
+        monkeypatch.setattr(app_module, "get_provider", lambda mid: fake)
+
+        statuses: list[int] = []
+        for i in range(5):
+            with c.stream(
+                "POST",
+                "/api/chat",
+                json={
+                    "session_id": f"s-rl-{i}",
+                    "message": "hi",
+                    "model": "claude-sonnet-4-5",
+                },
+            ) as r:
+                list(r.iter_bytes())
+                statuses.append(r.status_code)
+
+        assert 429 in statuses, f"expected at least one 429, got {statuses}"
+        assert statuses.count(200) <= 2, (
+            f"limit was 2/minute but got more than 2 successes: {statuses}"
+        )

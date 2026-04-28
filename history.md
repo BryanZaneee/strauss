@@ -6,6 +6,24 @@ the source code alone. New decisions go at the top, dated. Each entry should ans
 
 ---
 
+## 2026-04-28 — Public repo hygiene and production guardrails
+
+### Decision: Personal KB content stays out of the public repository
+**Choice:** `kb/` is treated as local/private runtime data and ignored by git. The public repo documents the expected KB shape, but does not publish personal resume files, private project notes, or codebase XML dumps.
+
+**Why:** Strauss is a reusable framework. The engine, profile loader, tools, provider adapters, tests, and docs are the reusable surface; Bryan's personal knowledge base is deployment data. Publishing the KB would mix private content into the framework's source history and make future profile reuse harder to reason about.
+
+**Rejected:** Seeding the public repo with Bryan-specific KB markdown or XML dumps. That would make the demo feel richer on GitHub, but it creates an avoidable privacy and maintenance risk. Tests already use `tests/fixtures/mini_kb/`, which is the right public fixture boundary.
+
+### Decision: Production limits live in the app, not in the browser
+**Choice:** The FastAPI app enforces a per-IP `/api/chat` rate limit, a process-local daily token budget with `/api/budget` introspection, an active-session cap, and structured JSON completion logs. The browser remains a thin SSE client.
+
+**Why:** Abuse controls and usage accounting need to sit beside the provider keys and model calls. Keeping them server-side lets the same engine support a portfolio deployment today and other profiles later without asking every client to reimplement cost and safety rules.
+
+**Rejected:** Client-only throttling. It is useful as polish, but it is not a security boundary and cannot protect server-side API keys or model spend.
+
+---
+
 ## 2026-04-28 — DeepSeek thinking mode through OpenAICompatProvider
 
 ### Decision: DeepSeek slots in by extending OpenAICompatProvider, not adding a new provider class

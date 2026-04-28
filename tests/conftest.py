@@ -18,6 +18,16 @@ def use_mini_kb(monkeypatch):
     return FIXTURE_KB
 
 
+@pytest.fixture(autouse=True)
+def reset_budget():
+    """Reset the daily token budget between tests so they don't leak state."""
+    from backend.budget import TOKEN_BUDGET
+
+    TOKEN_BUDGET.reset()
+    yield
+    TOKEN_BUDGET.reset()
+
+
 @pytest.fixture
 def kb_root(use_mini_kb):
     """Convenience alias when a test wants to reference the path explicitly."""

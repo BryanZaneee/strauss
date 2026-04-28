@@ -10,7 +10,7 @@ Strauss is a portable framework for reusable agentic AI across multiple model pr
 
 - Python 3.11+, FastAPI, uvicorn, Server-Sent Events
 - `anthropic` SDK for Claude models
-- `openai` SDK with configurable `base_url` for OpenAI proper *and* Moonshot Kimi K2.6
+- `openai` SDK with configurable `base_url` for OpenAI proper, Moonshot Kimi K2.6, and DeepSeek
 - `google-genai` SDK for Gemini models
 - Vanilla HTML / CSS / JS frontend — no bundler, no build step
 - pytest with `monkeypatch`-based provider injection
@@ -19,7 +19,7 @@ Strauss is a portable framework for reusable agentic AI across multiple model pr
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-cp .env.example .env  # set ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY, and/or MOONSHOT_API_KEY
+cp .env.example .env  # set one or more provider keys locally; never commit secrets
 
 .venv/bin/python -m pytest -v                                     # tests
 .venv/bin/python -m uvicorn backend.app:app --reload --port 8001  # backend
@@ -69,13 +69,14 @@ Agent persona and KB root are loaded from [`profiles/`](profiles/) through [`bac
 - [`backend/config.py`](backend/config.py) — env loading, `MODEL_REGISTRY`, limits
 - `web/` — vanilla chat UI, palette/fonts borrowed from `bryanzane_v3`
 - `profiles/` — reusable agent profiles; `profiles/strauss/` is the default
-- `kb/` — content: `resume/`, `projects/`, `codebases/` (XMLs), `meta/`
+- `kb/` — local/private content such as resume files, project notes, and codebase XML dumps; ignored by git
 - [`tests/conftest.py`](tests/conftest.py) — `use_mini_kb` autouse fixture monkeypatches `KB_ROOT` to `tests/fixtures/mini_kb/`
 
 ## Conventions
 
 - **Tool schemas are authored in Anthropic shape.** When adding a tool, edit `SCHEMAS` and `run_tool` in [`backend/tools.py`](backend/tools.py). Provider adapters translate via `tool_translator.py`. Don't author the same tool twice.
 - **Agent identity belongs in profiles, not providers.** Add/edit `profiles/<id>/profile.json` and `system.md` for persona, welcome copy, suggestions, and KB root.
+- **Do not commit personal KB or secrets.** `kb/`, `.env*` files other than `.env.example`, API keys, private resumes, and XML codebase dumps must stay local/private.
 - **Follow the agent practices checklist.** [`docs/agent_best_practices.md`](docs/agent_best_practices.md) captures the standing rules for API boundaries, model selection, prompts, tools, streaming, retrieval, evals, and portability.
 - **All KB filesystem ops go through `_safe_resolve()`.** It rejects `..`, absolute paths, and symlink escapes. Never bypass it.
 - **The provider mutates `messages` inside `stream()`.** After the API call completes, append the assistant turn to `messages` *before* yielding `tool_use_complete` events. Mirror this contract in any new provider — otherwise the next API call rejects with "tool_result without preceding tool_use."
@@ -98,5 +99,5 @@ Agent persona and KB root are loaded from [`profiles/`](profiles/) through [`bac
 - ✅ **Phase D**: `OpenAICompatProvider` + `tool_translator.py` + Kimi K2.6 / GPT-5 wiring
 - ✅ **Profile split**: reusable engine + `profiles/strauss/` persona and KB root
 - ⏳ **Phase E**: prompt caching / usage overlay across providers
-- ⏳ **Phase F**: populate `kb/` (resume, quick_info, project pitches, meta) + smoke prompts
-- ⏳ **Phase G**: production hardening (rate limits, daily token budget, logging)
+- ⏳ **Phase F**: populate a local/private `kb/` (resume, quick_info, project pitches, meta) + smoke prompts
+- ✅ **Phase G**: production hardening — per-IP rate limit, daily token budget, active-session cap, structured JSON logs
