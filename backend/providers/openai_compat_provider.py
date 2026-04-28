@@ -159,9 +159,11 @@ class OpenAICompatProvider:
         if completed_tool_calls:
             assistant_msg["tool_calls"] = completed_tool_calls
             stop_reason = "tool_use"
-        # DeepSeek thinking mode requires reasoning_content to round-trip on tool-call turns
-        # or the next request 400s. Other providers don't accept the field, so this is gated.
-        if self.preserve_reasoning_content and completed_tool_calls and reasoning_parts:
+        # DeepSeek thinking mode requires reasoning_content to round-trip on every
+        # assistant turn that streamed reasoning, not just tool-call turns — empirically,
+        # plain-text turns 400 the next request too if their reasoning_content is dropped.
+        # Other providers don't accept the field, so this is gated by the registry flag.
+        if self.preserve_reasoning_content and reasoning_parts:
             assistant_msg["reasoning_content"] = "".join(reasoning_parts)
         messages.append(assistant_msg)
 

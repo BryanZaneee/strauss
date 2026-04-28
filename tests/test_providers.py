@@ -192,11 +192,35 @@ class TestReasoningContentHandling:
         assert "reasoning_content" not in messages[-1]
 
     @pytest.mark.asyncio
-    async def test_reasoning_dropped_on_no_tool_call_turn(self):
-        """Plain text turns don't bloat the message log even with the flag on."""
+    async def test_reasoning_preserved_on_plain_text_turn(self):
+        """DeepSeek 400s the next request if reasoning_content is dropped from any
+        thinking-mode turn — including plain-text turns. So preserve whenever it
+        streamed, regardless of whether tool_calls are also present."""
         client = FakeOpenAIClient([
             _chunk(choices=[_choice(delta=_delta(reasoning="thinking..."))]),
             _chunk(choices=[_choice(delta=_delta(text="plain answer"))]),
+            _chunk(choices=[_choice(delta=_delta(), finish_reason="stop")]),
+        ])
+        provider = OpenAICompatProvider(
+            api_key_env="DEEPSEEK_API_KEY",
+            preserve_reasoning_content=True,
+            client=client,
+        )
+
+        messages: list = []
+        await _drain(provider, messages)
+
+        assistant_msg = messages[-1]
+        assert assistant_msg["role"] == "assistant"
+        assert assistant_msg["content"] == "plain answer"
+        assert "tool_calls" not in assistant_msg
+        assert assistant_msg["reasoning_content"] == "thinking..."
+
+    @pytest.mark.asyncio
+    async def test_no_reasoning_field_when_no_reasoning_streamed(self):
+        """If the model never emits reasoning_content, the field isn't synthesized."""
+        client = FakeOpenAIClient([
+            _chunk(choices=[_choice(delta=_delta(text="just an answer"))]),
             _chunk(choices=[_choice(delta=_delta(), finish_reason="stop")]),
         ])
         provider = OpenAICompatProvider(
