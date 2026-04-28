@@ -62,6 +62,9 @@ def get_provider(model_id: str) -> LLMProvider:
             token_param=cfg.get("token_param", "max_completion_tokens"),
             stream_options=cfg.get("stream_options", True),
             include_tool_result_name=bool(cfg.get("base_url")),
+            extra_body=cfg.get("extra_body"),
+            reasoning_effort=cfg.get("reasoning_effort"),
+            preserve_reasoning_content=bool(cfg.get("preserve_reasoning_content")),
         )
     if cfg["provider"] == "gemini":
         api_key_env = cfg["api_key_env"]

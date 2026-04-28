@@ -118,6 +118,19 @@ MODEL_REGISTRY: dict[str, dict] = {
         "label": "Gemini 2.5 Flash",
         "vendor": "Google",
     },
+    "deepseek-v4-flash": {
+        "provider": "openai_compat",
+        "model": "deepseek-v4-flash",
+        "base_url": "https://api.deepseek.com",
+        "api_key_env": "DEEPSEEK_API_KEY",
+        "token_param": "max_tokens",
+        "stream_options": True,
+        "reasoning_effort": "high",
+        "extra_body": {"thinking": {"type": "enabled"}},
+        "preserve_reasoning_content": True,
+        "label": "DeepSeek V4 Flash",
+        "vendor": "DeepSeek",
+    },
 }
 
 
