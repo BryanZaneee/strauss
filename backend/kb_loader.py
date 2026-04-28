@@ -24,6 +24,16 @@ PROJECT_ALIASES: dict[str, str] = {
     "bryanzanecom": "bryanzane-com",
     "infinichat_rn": "infinichat",
     "infinichat-rn": "infinichat",
+    "infinichat.ai": "infinichat",
+    "shuttrr.com": "shuttrr",
+    "ftrmsg.com": "ftrmsg",
+    "esmebelle": "esme",
+    "esmebelle.studio": "esme",
+    "esme belle": "esme",
+    "esmé belle": "esme",
+    "ayopapo.studio": "ayopapo",
+    "ayo papo": "ayopapo",
+    "papo": "ayopapo",
 }
 
 

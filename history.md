@@ -15,6 +15,13 @@ the source code alone. New decisions go at the top, dated. Each entry should ans
 
 **Rejected:** Seeding the public repo with Bryan-specific KB markdown or XML dumps. That would make the demo feel richer on GitHub, but it creates an avoidable privacy and maintenance risk. Tests already use `tests/fixtures/mini_kb/`, which is the right public fixture boundary.
 
+### Decision: Public project aliases can stay in code; private content stays in KB
+**Choice:** `PROJECT_ALIASES` may include public-facing project names, domains, and common spellings so the default Strauss profile can resolve natural project questions to local KB slugs. The files those aliases point at still live under ignored `kb/` runtime data.
+
+**Why:** Aliases are routing hints, not private source material. Keeping them in code improves tool reliability for site visitors without exposing resumes, codebase dumps, or private notes.
+
+**Rejected:** Moving every alias into private KB metadata. That would keep the public framework slightly more generic, but it would also make a fresh deploy easier to misconfigure and weaken tests around the project lookup path.
+
 ### Decision: Production limits live in the app, not in the browser
 **Choice:** The FastAPI app enforces a per-IP `/api/chat` rate limit, a process-local daily token budget with `/api/budget` introspection, an active-session cap, and structured JSON completion logs. The browser remains a thin SSE client.
 
