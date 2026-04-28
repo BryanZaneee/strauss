@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Strauss / advocate-in-residence</title>
+  <meta name="description" content="An advocate-in-residence for Bryan Zane Smith." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css?v=1" />
+</head>
+<body>
+  <header class="hdr">
+    <div class="hdr-inner">
+      <span class="hdr-mark">STRAUSS</span>
+      <span class="hdr-slash">/</span>
+      <span class="hdr-role">advocate-in-residence</span>
+      <span class="hdr-spacer"></span>
+      <a class="hdr-link" href="https://bryanzane.com">bryanzane.com</a>
+    </div>
+  </header>
+
+  <main class="chat" id="chat">
+    <div class="chat-feed" id="chat-feed">
+      <div class="msg msg-system">
+        <p>I answer questions about Bryan grounded in his resume and codebases. I won't make things up &mdash; if a fact isn't there, I'll say so.</p>
+        <p class="hint">Try: <em>What's Bryan's strongest project?</em> &middot; <em>Has he done agent work?</em> &middot; <em>Tell me about Shuttrr.</em></p>
+      </div>
+    </div>
+
+    <form class="chat-form" id="chat-form" autocomplete="off">
+      <div class="chat-controls">
+        <label class="model-label" for="model-selector">model</label>
+        <select id="model-selector" class="model-select" aria-label="Pick a model"></select>
+        <button type="button" id="new-chat" class="btn-ghost" title="Start a fresh conversation">new chat</button>
+      </div>
+      <div class="chat-input-row">
+        <span class="chat-prompt">&gt;</span>
+        <input
+          type="text"
+          id="message-input"
+          class="chat-input"
+          placeholder="ask about Bryan&hellip;"
+          autocomplete="off"
+          maxlength="4000"
+          required
+        />
+        <button type="submit" id="send" class="btn-send">send</button>
+      </div>
+    </form>
+  </main>
+
+  <script src="app.js?v=1"></script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+# Strauss — Architectural History
+
+A running log of decisions that future agents (or future-me) can't recover from reading
+the source code alone. New decisions go at the top, dated. Each entry should answer
+**why** the choice was made and **what was rejected**.
+
+---
+
+## 2026-04-28 — Multi-provider wiring + reusable profiles
+
+### Decision: Agent profile is separate from the engine
+**Choice:** persona, welcome copy, suggestions, system prompt, and KB root now live under `profiles/<id>/`. The reusable engine receives an `AgentProfile` and passes `profile.kb_root` into tool dispatch.
+
+**Why:** Strauss should be the first profile on top of a reusable agent framework, not the framework itself. A future Marathon advisor can add a profile package and point at a different KB without forking the provider loop.
+
+### Decision: Profiles explicitly allow tools
+**Choice:** `profile.json` declares the tools available to that agent. Providers translate only those schemas, and the tool dispatcher rejects calls outside the active profile's allowlist.
+
+**Why:** exposing every future tool to every future agent would make behavior harder to evaluate and easier to misuse. Tool allowlists keep each profile's capabilities intentional while preserving the same engine.
+
+### Decision: OpenAI and Kimi share one OpenAI-compatible provider
+**Choice:** `OpenAICompatProvider` handles OpenAI and Moonshot/Kimi chat-completions streaming. Tool schemas are still authored once in Anthropic shape, then translated to OpenAI function-tool shape.
+
+**Why:** Kimi documents OpenAI-compatible tool calls and `role: tool` results, including streamed argument accumulation by `tool_calls[index]`. Keeping OpenAI and Kimi in one provider makes their shared message shape explicit while still allowing per-model knobs like `base_url`, token parameter, and stream-usage support.
+
+### Decision: Gemini gets a native provider
+**Choice:** `GeminiProvider` uses Google's `google-genai` SDK, `GenerateContentConfig`, and manual function-call handling with automatic function calling disabled.
+
+**Why:** Gemini's history and function response shape is different enough from OpenAI that pretending it is OpenAI-compatible would make the engine brittle. The provider preserves Gemini `Content`/`Part` history and returns function responses with the model's call id.
+
+## 2026-04-26 — Phase 0/A/B foundation
+
+### Decision: Two native SDKs + thin protocol layer (not LiteLLM, not OpenRouter)
+**Choice:** `anthropic` SDK for Claude + `openai` SDK with configurable `base_url` for OpenAI/Moonshot. A small `LLMProvider` Protocol normalizes the wire formats into a common `Event` shape that the agent loop consumes.
+
+**Rejected:**
+- **LiteLLM** — would have collapsed the two providers into one `litellm.acompletion(...)` call. Mature, well-maintained, supports 100+ providers. Rejected because it hides the protocol differences entirely (you'd never see how Moonshot's tool_calls accumulate from JSON fragments vs Anthropic's typed events). Building this for educational value, so seeing the differences IS the value.
+- **OpenRouter as a gateway** — single OpenAI-compatible endpoint that routes to all providers. Rejected for the same reason + adds a paid middleman + you lose Anthropic-native `cache_control` (OR converts to OpenAI shape).
+
+If maintaining two providers ever becomes painful, swap both for a single `LiteLLMProvider` behind the same `LLMProvider` interface. ~1 day of work.
+
+### Decision: Tool schemas authored in Anthropic shape, translated to OpenAI shape
+**Choice:** [SCHEMAS](backend/tools.py) live in Anthropic's `{name, description, input_schema}` form. A trivial `tool_translator.to_openai()` (Phase D) emits the OpenAI/Moonshot `{type: "function", function: {parameters: ...}}` form on demand.
+
+**Why:** the user's Anthropic-course notebooks (`001_tools_009.ipynb`) use `input_schema` natively. Authoring in that shape keeps a 1-to-1 correspondence with what was already studied. The JSON Schema body is identical between the two formats — only the wrapper differs — so translation is mechanical.
+
+### Decision: Hybrid tool design (3 generic + 2 specialized), not all-generic
+**Choice:** `list_kb`, `read_file`, `search_kb` cover the long tail; `get_resume_summary`, `get_project_context` are specialized shortcuts.
+
+**Why:** the specialized tools signal to the model "this is the canonical answer for resume/project questions, don't go fishing." Without them, models tend to do 3-4 unnecessary `search_kb` → `read_file` round trips for canonical questions. Specialized tools earn their keep when the model's default behavior is wasteful.
+
+### Decision: KB layering — four tiers, only two are tool-result layers
+```
+manifest (always loaded, cached system block)        ← navigable index
+quick_info.md (always loaded, cached system block)   ← per-codebase technical cheat sheet
+project pitch summaries (tool result)                ← why-it-matters narrative per project
+raw repomix XMLs (tool result with line-slicing)     ← actual source for "show me the code"
+```
+
+**Why:** putting per-codebase summaries directly in the system prompt as a third cached block means 80%+ of "tell me about Bryan's projects" questions need zero tool calls. Cache reads cost 10% of input on Anthropic; auto-cache covers it on OpenAI/Moonshot. A model that has the cheat sheet in its context will naturally cite it instead of thrashing through XML.
+
+### Decision: Provider mutates `messages` list inside `stream()`
+**Choice:** [`AnthropicProvider.stream`](backend/providers/anthropic_provider.py) appends the assistant turn to the messages list internally, *before* yielding `tool_use_complete` events. The agent.py loop only mutates messages via `provider.append_tool_results()`.
+
+**Why:** the assistant turn (containing tool_use blocks) MUST land in the message log before the next turn's tool_result blocks. Otherwise Anthropic's API rejects the next call with "tool_result without preceding tool_use." Putting this side effect inside the provider means there's only one ordering invariant to remember: provider writes assistant, loop writes user(tool_results). Clean, predictable.
+
+**Trade-off:** the test `FakeProvider` has to mirror this contract too (it appends a placeholder assistant turn). Documented in [tests/test_agent_loop.py](tests/test_agent_loop.py).
+
+### Decision: Mid-conversation model switch resets the session
+**Choice:** When the user switches models in the dropdown, the frontend treats it as starting a fresh conversation (new `session_id`).
+
+**Why:** `session["messages"]` is provider-specific (Anthropic uses content blocks; OpenAI uses `tool_calls` arrays + `role:"tool"` results). Switching mid-conversation would feed Anthropic-shaped messages into Kimi K2 (or vice versa) and the model wouldn't understand them.
+
+**Rejected:** a normalized intermediate message-log shape with translation hooks. More code, more failure modes, and matches how ChatGPT/Claude/Cursor behave when you switch models. Defer to v2 if there's a real demand for "show recruiter both answers" UX.
+
+### Decision: `MAX_TOOL_HOPS = 8` as a runaway-loop safety net
+**Choice:** the agent loop is bounded by [`MAX_TOOL_HOPS`](backend/config.py).
+
+**Why:** a real recruiter question should never need more than ~3 hops (one specialized tool call + at most one slice of XML). 8 is generous for legitimate use, tight enough to catch a model that's stuck in a tool-thrashing loop. Loop terminates with an explicit `error` event so the frontend can surface it cleanly.
+
+### Decision: In-memory sessions, swept lazily per request
+**Choice:** `SESSIONS: dict[str, dict]` lives in process memory. Stale sessions (idle > `SESSION_TTL`) are pruned at the top of each `/api/chat` call.
+
+**Why:** v1 is single-worker. Lazy sweeping avoids a background `asyncio.create_task` and the testing complications it creates with `TestClient` (which doesn't always run startup hooks the way uvicorn does). When a v2 multi-worker setup is needed, this graduates to sqlite or Redis.
+
+**Rejected:** persistent sessions, cross-visit memory. Privacy implications are non-trivial and the use case doesn't demand it yet.
+
+### Decision: Vanilla static frontend (no React, no Vite, no build step)
+**Choice:** [`web/index.html`](web/index.html) + `styles.css` + `app.js`, served as static files.
+
+**Why:** matches `bryanzane_v3`'s existing deployment philosophy (CDN Tailwind + GSAP + Formspree + zero build). The chat UI is small (~350 lines total) — a framework would add more weight than it saves. Same VPS, same nginx, same auto-deploy webhook flow.
+
+### Decision: Streaming-first AnthropicProvider (skipping the non-streaming step)
+**Choice:** `AnthropicProvider.stream()` is the only entry point. There is no non-streaming variant.
+
+**Why:** the original phased plan (Phase B non-streaming, then Phase C streaming) would have required rewriting the provider's core method between phases. Going straight to streaming costs no clarity — the loop's `stop_reason` branching lives in `agent.py`, not the provider, so it's still visible.
+
+### Decision: Provider DI via module-level factory + `monkeypatch`, not FastAPI `Depends()`
+**Choice:** [`backend/app.py`](backend/app.py) exposes a `get_provider(model_id)` function. Tests `monkeypatch.setattr("backend.app.get_provider", ...)` to inject a `FakeProvider`.
+
+**Why:** matches the existing `monkeypatch` pattern in [tests/conftest.py](tests/conftest.py) for `KB_ROOT`. One fewer FastAPI concept to learn while building. `Depends()` + `app.dependency_overrides` is the more "FastAPI-blessed" pattern and is worth knowing, but we don't need its features (composable dependencies, request-scoped caching) here.
+
+### Decision: `MODEL_REGISTRY` declares all 6 models from day one; `REGISTERED_PROVIDERS` gates which are visible
+**Choice:** [`config.py`](backend/config.py) declares Anthropic + OpenAI + Moonshot model entries simultaneously. A `REGISTERED_PROVIDERS = {"anthropic"}` constant in `app.py` filters `/api/models` to only return models whose provider is implemented. Phase D adds `"openai_compat"` to the set.
+
+**Why:** keeps the registry stable across phases (no rework when adding providers). The frontend dropdown only ever sees what works. Footgun avoided: a Moonshot key set with no `OpenAICompatProvider` available wouldn't surface as a broken model in the dropdown.

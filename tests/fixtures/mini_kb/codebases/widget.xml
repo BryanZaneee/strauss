@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<repository>
+  <file path="src/main.py">
+    <![CDATA[
+def hello():
+    return "hello from widget"
+    ]]>
+  </file>
+  <file path="src/util.py">
+    <![CDATA[
+def add(a, b):
+    return a + b
+    ]]>
+  </file>
+</repository>

@@ -1,0 +1,20 @@
+{
+  "id": "strauss",
+  "label": "Strauss",
+  "description": "Candidate-advocate agent for Bryan Zane Smith.",
+  "kb_root": "kb",
+  "system_prompt_path": "profiles/strauss/system.md",
+  "tools": [
+    "list_kb",
+    "read_file",
+    "search_kb",
+    "get_resume_summary",
+    "get_project_context"
+  ],
+  "welcome": "I answer questions about Bryan grounded in his resume and codebases. I won't make things up; if a fact isn't there, I'll say so.",
+  "suggestions": [
+    "What's Bryan's strongest project?",
+    "Has he done agent work?",
+    "Tell me about Shuttrr."
+  ]
+}
