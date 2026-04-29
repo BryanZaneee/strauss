@@ -1,5 +1,5 @@
-// EasyAgent — chat UI controller for the standalone demo. Vanilla, no build step.
-// Talks to the FastAPI backend at /api/chat (SSE) and /api/models.
+// EasyAgent chat UI controller for the standalone demo. Vanilla, no build step.
+// Talks to the FastAPI backend at /api/chat (SSE), /api/models, and /api/profile.
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 const API_BASE = window.EASYAGENT_API_BASE
@@ -7,15 +7,16 @@ const API_BASE = window.EASYAGENT_API_BASE
   || (LOCAL_HOSTS.has(window.location.hostname) ? "http://127.0.0.1:8001" : "");
 
 const SESSION_KEY = "strauss-session";
-const MODEL_KEY = "strauss-model";
+const FIXED_MODEL = "deepseek-v4-flash";
 
 const state = {
-  models: [],
   profile: null,
-  currentModel: null,
+  currentModel: FIXED_MODEL,
   sessionId: null,
   inflight: false,
-  toolNode: null,
+  // FIFO of unsettled tool indicators. The backend emits all tool_use_starts
+  // for a hop, then all tool_results in matching order.
+  pendingTools: [],
 };
 
 const els = {
@@ -23,23 +24,25 @@ const els = {
   form: () => document.getElementById("chat-form"),
   input: () => document.getElementById("message-input"),
   send: () => document.getElementById("send"),
-  modelSelect: () => document.getElementById("model-selector"),
   newChat: () => document.getElementById("new-chat"),
 };
-
-// ─── Init ─────────────────────────────────────────────────────────────────
 
 async function init() {
   state.sessionId = sessionStorage.getItem(SESSION_KEY) || crypto.randomUUID();
   sessionStorage.setItem(SESSION_KEY, state.sessionId);
 
+  setBusy(true);
+
   await loadProfile();
-  await loadModels();
+  await verifyDeepSeek();
 
   els.form().addEventListener("submit", onSubmit);
-  els.modelSelect().addEventListener("change", onModelChange);
   els.newChat().addEventListener("click", onNewChat);
-  els.input().focus();
+
+  if (state.currentModel) {
+    setBusy(false);
+    els.input().focus();
+  }
 }
 
 async function loadProfile() {
@@ -53,45 +56,20 @@ async function loadProfile() {
   }
 }
 
-async function loadModels() {
+async function verifyDeepSeek() {
   try {
     const res = await fetch(`${API_BASE}/api/models`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    state.models = data.models || [];
-    if (state.models.length === 0) {
-      appendError("No models available — set ANTHROPIC_API_KEY in the server's .env");
-      return;
+    const models = data.models || [];
+    if (!models.some(m => m.id === FIXED_MODEL)) {
+      state.currentModel = null;
+      appendError("DeepSeek V4 Flash is not available on the server right now.");
     }
-    const stored = sessionStorage.getItem(MODEL_KEY);
-    state.currentModel = state.models.some(m => m.id === stored) ? stored : data.default;
-    renderModelSelect();
   } catch (err) {
-    appendError(`Failed to load models: ${err.message}`);
+    state.currentModel = null;
+    appendError(`Failed to load model availability: ${err.message}`);
   }
-}
-
-function renderModelSelect() {
-  const sel = els.modelSelect();
-  sel.innerHTML = "";
-  for (const m of state.models) {
-    const opt = document.createElement("option");
-    opt.value = m.id;
-    opt.textContent = `${m.vendor} · ${m.label}`;
-    if (m.id === state.currentModel) opt.selected = true;
-    sel.appendChild(opt);
-  }
-}
-
-// ─── Event handlers ───────────────────────────────────────────────────────
-
-function onModelChange(e) {
-  const newModel = e.target.value;
-  if (newModel === state.currentModel) return;
-  // Switching models resets the conversation (different message-log shapes).
-  state.currentModel = newModel;
-  sessionStorage.setItem(MODEL_KEY, newModel);
-  resetSession(`switched to ${state.models.find(m => m.id === newModel)?.label || newModel}`);
 }
 
 function onNewChat() {
@@ -101,7 +79,7 @@ function onNewChat() {
 function resetSession(reason) {
   state.sessionId = crypto.randomUUID();
   sessionStorage.setItem(SESSION_KEY, state.sessionId);
-  // Clear feed but keep the system intro.
+  state.pendingTools = [];
   const feed = els.feed();
   while (feed.children.length > 1) feed.removeChild(feed.lastChild);
   appendSystem(`(${reason})`);
@@ -110,6 +88,10 @@ function resetSession(reason) {
 async function onSubmit(e) {
   e.preventDefault();
   if (state.inflight) return;
+  if (!state.currentModel) {
+    appendError("DeepSeek V4 Flash is not loaded. Refresh the page or check the server.");
+    return;
+  }
   const text = els.input().value.trim();
   if (!text) return;
 
@@ -117,10 +99,15 @@ async function onSubmit(e) {
   setBusy(true);
 
   appendUser(text);
-  const agentNode = appendAgent();
+  const ctx = {
+    thinkingNode: null,
+    thinkingBuffer: "",
+    agentNode: null,
+    agentBuffer: "",
+  };
 
   try {
-    await streamChat(text, agentNode);
+    await streamChat(text, ctx);
   } catch (err) {
     appendError(err.message || String(err));
   } finally {
@@ -135,9 +122,7 @@ function setBusy(busy) {
   els.send().disabled = busy;
 }
 
-// ─── SSE stream consumer ──────────────────────────────────────────────────
-
-async function streamChat(message, agentNode) {
+async function streamChat(message, ctx) {
   const res = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
@@ -171,38 +156,60 @@ async function streamChat(message, agentNode) {
       if (ev && data) {
         let payload;
         try { payload = JSON.parse(data); } catch { continue; }
-        handleEvent(ev, payload, agentNode);
+        handleEvent(ev, payload, ctx);
       }
     }
   }
 }
 
-function handleEvent(type, payload, agentNode) {
+function handleEvent(type, payload, ctx) {
   switch (type) {
+    case "thinking_delta":
+      if (!ctx.thinkingNode) {
+        ctx.thinkingNode = appendThinking();
+        ctx.thinkingBuffer = "";
+      }
+      ctx.thinkingBuffer += payload.text || "";
+      ctx.thinkingNode.querySelector(".thinking-content").innerHTML =
+        renderMarkdown(ctx.thinkingBuffer);
+      scrollToBottom();
+      break;
     case "delta":
-      agentNode.textContent += payload.text || "";
+      if (!ctx.agentNode) {
+        ctx.agentNode = appendAgent();
+        ctx.agentBuffer = "";
+      }
+      ctx.agentBuffer += payload.text || "";
+      ctx.agentNode.innerHTML = renderMarkdown(ctx.agentBuffer);
       scrollToBottom();
       break;
     case "tool_use_start":
+      ctx.agentNode = null;
+      ctx.agentBuffer = "";
+      ctx.thinkingNode = null;
+      ctx.thinkingBuffer = "";
       showToolIndicator(payload.name);
       break;
     case "tool_result":
-      clearToolIndicator(payload.is_error);
+      settleToolIndicator(payload.is_error);
       break;
     case "done":
-      clearToolIndicator(false);
+      settleAllTools(false);
       break;
     case "usage":
-      // Reserved for the dev overlay (Phase E). No-op for now.
       break;
     case "error":
-      clearToolIndicator(true);
+      settleAllTools(true);
       appendError(payload.message || "stream error");
       break;
   }
 }
 
-// ─── DOM helpers ──────────────────────────────────────────────────────────
+function renderMarkdown(text) {
+  if (!window.marked || !window.DOMPurify) return escapeHtml(text);
+  const html = window.marked.parse(text, { breaks: true, gfm: true });
+  return window.DOMPurify.sanitize(html);
+}
 
 function appendUser(text) {
   const div = document.createElement("div");
@@ -220,6 +227,21 @@ function appendAgent() {
   return div;
 }
 
+function appendThinking() {
+  const det = document.createElement("details");
+  det.className = "msg msg-thinking";
+  det.open = true;
+  const sum = document.createElement("summary");
+  sum.textContent = "thinking";
+  det.appendChild(sum);
+  const body = document.createElement("div");
+  body.className = "thinking-content";
+  det.appendChild(body);
+  els.feed().appendChild(det);
+  scrollToBottom();
+  return det;
+}
+
 function appendSystem(text) {
   const div = document.createElement("div");
   div.className = "msg msg-system";
@@ -227,7 +249,6 @@ function appendSystem(text) {
   p.textContent = text;
   div.appendChild(p);
   els.feed().appendChild(div);
-  scrollToBottom();
 }
 
 function renderProfileIntro() {
@@ -258,23 +279,32 @@ function appendError(text) {
   div.className = "msg msg-error";
   div.textContent = text;
   els.feed().appendChild(div);
-  scrollToBottom();
 }
 
 function showToolIndicator(toolName) {
-  if (state.toolNode) state.toolNode.remove();
   const div = document.createElement("div");
   div.className = "msg msg-tool";
   div.innerHTML = `running <strong>${escapeHtml(toolName)}</strong><span class="dots"></span>`;
   els.feed().appendChild(div);
-  state.toolNode = div;
+  state.pendingTools.push(div);
   scrollToBottom();
 }
 
-function clearToolIndicator(isError) {
-  if (!state.toolNode) return;
-  if (isError) state.toolNode.style.color = "#a23636";
-  state.toolNode = null;
+function settleToolIndicator(isError) {
+  const node = state.pendingTools.shift();
+  if (!node) return;
+  const dots = node.querySelector(".dots");
+  if (dots) {
+    const tail = document.createElement("span");
+    tail.className = "tool-tail";
+    tail.textContent = isError ? " · error" : " · done";
+    dots.replaceWith(tail);
+  }
+  node.classList.add(isError ? "is-error" : "is-done");
+}
+
+function settleAllTools(isError) {
+  while (state.pendingTools.length) settleToolIndicator(isError);
 }
 
 function escapeHtml(s) {
@@ -286,7 +316,5 @@ function escapeHtml(s) {
 function scrollToBottom() {
   window.scrollTo({top: document.body.scrollHeight, behavior: "smooth"});
 }
-
-// ─── Go ───────────────────────────────────────────────────────────────────
 
 init();

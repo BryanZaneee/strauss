@@ -8,6 +8,31 @@ the source code alone. New decisions go at the top, dated. Each entry should ans
 
 ---
 
+## 2026-04-29 — Commit message convention wording
+
+### Decision: Agent guidance names the commit format explicitly
+**Choice:** `AGENTS.md` now refers to Conventional Commits labels with "50:72" formatting: an imperative labeled subject under 50 characters, a blank line, and body lines wrapped at 72 characters explaining why.
+
+**Why:** The repo already used Conventional Commits-style labels and 50/72 wrapping, but spelling it as "50:72" matches the owner's release handoff language and gives future agents a stable instruction to follow before production pushes.
+
+**Rejected:** Leaving this as an implicit preference. Commit-message shape is not visible from source code behavior, so it belongs in agent guidance and history rather than only in one-off chat context.
+
+## 2026-04-29 — DeepSeek-only web UI and CSP-safe markdown rendering
+
+### Decision: The demo UI no longer exposes model switching
+**Choice:** `web/` now treats `deepseek-v4-flash` as the fixed browser model and shows it as a static chip instead of a dropdown. The frontend still calls `/api/models`, but only to confirm DeepSeek is available before accepting submissions.
+
+**Why:** Bryan's production site is intentionally running DeepSeek for now. Keeping a selector in the UI suggests visitors can choose other providers even though the public deployment is being presented as a DeepSeek-backed showcase. The profile id remains `strauss` because that is the bundled persona; only the browser model control was removed.
+
+**Rejected:** Hiding the dropdown with CSS while leaving selector state active. That would preserve unnecessary session-storage model state and keep a stale "switch model resets conversation" code path around after the product decision changed.
+
+### Decision: Markdown rendering uses CSP-allowed libraries and sanitizes before injection
+**Choice:** The static frontend loads pinned `marked@12.0.2` and `DOMPurify@3.1.6` from cdnjs, then buffers streamed deltas and re-renders sanitized markdown during streaming. Tool indicators use a FIFO queue and settle visibly as `done` or `error`.
+
+**Why:** bryanzane.com already allows cdnjs in its Content Security Policy, while jsDelivr was blocked in production. Rendering markdown only after DOMPurify is present keeps the no-build frontend simple without injecting unsanitized HTML from model output.
+
+**Rejected:** Expanding the Caddy CSP to allow another CDN just for this page. cdnjs already serves the exact pinned versions, so changing the page dependency URL is the smaller deployment surface.
+
 ## 2026-04-28 — Public repo hygiene and production guardrails
 
 ### Decision: Personal KB content stays out of the public repository
