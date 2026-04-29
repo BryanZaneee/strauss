@@ -83,6 +83,7 @@ Agent persona and KB root are loaded from [`profiles/`](profiles/) through [`bac
 - **All KB filesystem ops go through `_safe_resolve()`.** It rejects `..`, absolute paths, and symlink escapes. Never bypass it.
 - **The provider mutates `messages` inside `stream()`.** After the API call completes, append the assistant turn to `messages` *before* yielding `tool_use_complete` events. Mirror this contract in any new provider — otherwise the next API call rejects with "tool_result without preceding tool_use."
 - **Loop bound: `MAX_TOOL_HOPS = 8`.** A normal profile-specific question should rarely need more than 3 hops. The cap is a runaway-loop safety net.
+- **Commits use Conventional Commits labels + 50/72 format.** Subject: `<label>(<optional scope>): <imperative summary>` under 50 chars (labels: `feat`, `fix`, `chore`, `style`, `refactor`, `docs`, `test`, `perf`, `revert`). Blank line, then body lines wrapped at 72 chars explaining *why*. No trailing period in the subject.
 - **No `Co-Authored-By: Claude` in commits.** Per repo owner's preference.
 
 ## Reading order for a new contributor / agent
