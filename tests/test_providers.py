@@ -124,7 +124,7 @@ class TestThinkingModeWiring:
 
 class TestReasoningContentHandling:
     @pytest.mark.asyncio
-    async def test_reasoning_never_yielded_as_text_delta(self):
+    async def test_reasoning_streams_as_thinking_delta_not_text(self):
         client = FakeOpenAIClient([
             _chunk(choices=[_choice(delta=_delta(reasoning="thinking step 1"))]),
             _chunk(choices=[_choice(delta=_delta(reasoning="thinking step 2"))]),
@@ -142,8 +142,16 @@ class TestReasoningContentHandling:
         text_deltas = [e for e in events if e["type"] == "text_delta"]
         assert text_deltas == [{"type": "text_delta", "text": "actual answer"}]
 
-        # Belt-and-suspenders: no event of any type carries the reasoning string.
+        # Reasoning surfaces in thinking_delta events (so the UI can render it),
+        # but never bleeds into text_delta or any non-thinking event.
+        thinking_deltas = [e for e in events if e["type"] == "thinking_delta"]
+        assert thinking_deltas == [
+            {"type": "thinking_delta", "text": "thinking step 1"},
+            {"type": "thinking_delta", "text": "thinking step 2"},
+        ]
         for ev in events:
+            if ev["type"] == "thinking_delta":
+                continue
             for value in ev.values():
                 assert "thinking step" not in str(value)
 

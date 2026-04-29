@@ -41,6 +41,8 @@ async def run_conversation_stream(
             t = ev.get("type")
             if t == "text_delta":
                 yield {"event": "delta", "text": ev["text"]}
+            elif t == "thinking_delta":
+                yield {"event": "thinking_delta", "text": ev["text"]}
             elif t == "tool_use_start":
                 yield {"event": "tool_use_start", "name": ev["name"]}
             elif t == "tool_use_complete":

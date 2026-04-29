@@ -111,6 +111,7 @@ class OpenAICompatProvider:
                 reasoning = getattr(delta, "reasoning_content", None)
                 if reasoning:
                     reasoning_parts.append(reasoning)
+                    yield {"type": "thinking_delta", "text": reasoning}
                     continue
 
                 text = getattr(delta, "content", None)

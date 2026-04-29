@@ -66,7 +66,7 @@ def get_provider(model_id: str) -> LLMProvider:
     if cfg["provider"] == "anthropic":
         if not os.environ.get("ANTHROPIC_API_KEY"):
             raise HTTPException(status_code=400, detail="missing ANTHROPIC_API_KEY")
-        return AnthropicProvider()
+        return AnthropicProvider(thinking_budget=cfg.get("thinking_budget"))
     if cfg["provider"] == "openai_compat":
         api_key_env = cfg["api_key_env"]
         if not os.environ.get(api_key_env):

@@ -14,6 +14,7 @@ from backend.tools import ToolResult
 class Event(TypedDict, total=False):
     type: Literal[
         "text_delta",
+        "thinking_delta",
         "tool_use_start",
         "tool_use_complete",
         "message_done",

@@ -12,8 +12,12 @@ from backend.tools import ToolResult, schemas_for_tools
 
 
 class AnthropicProvider:
-    def __init__(self) -> None:
+    def __init__(self, *, thinking_budget: int | None = None) -> None:
         self.client = AsyncAnthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+        # When set, enable extended thinking with this budget. The API requires
+        # max_tokens > thinking.budget_tokens, so the stream call also bumps
+        # max_tokens upward if the caller's value would underflow.
+        self.thinking_budget = thinking_budget
 
     def format_user(self, text: str) -> dict:
         return {"role": "user", "content": text}
@@ -49,16 +53,26 @@ class AnthropicProvider:
         tools: list,
         max_tokens: int,
     ) -> AsyncIterator[Event]:
-        async with self.client.messages.stream(
-            model=model,
-            max_tokens=max_tokens,
-            system=system,
-            messages=messages,
-            tools=tools,
-        ) as stream:
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "system": system,
+            "messages": messages,
+            "tools": tools,
+        }
+        if self.thinking_budget:
+            # Anthropic requires max_tokens strictly greater than budget_tokens; reserve
+            # at least 1024 tokens for the visible response so a tight MAX_TOKENS env
+            # doesn't starve it.
+            kwargs["max_tokens"] = max(max_tokens, self.thinking_budget + 1024)
+            kwargs["thinking"] = {"type": "enabled", "budget_tokens": self.thinking_budget}
+
+        async with self.client.messages.stream(**kwargs) as stream:
             async for chunk in stream:
                 if chunk.type == "text":
                     yield {"type": "text_delta", "text": chunk.text}
+                elif chunk.type == "thinking":
+                    yield {"type": "thinking_delta", "text": chunk.thinking}
                 elif chunk.type == "content_block_start":
                     cb = getattr(chunk, "content_block", None)
                     if cb is not None and getattr(cb, "type", None) == "tool_use":

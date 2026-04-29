@@ -16,7 +16,7 @@ PROFILE_ROOT: Path = Path(os.environ.get("STRAUSS_PROFILE_ROOT", "./profiles")).
 
 DEFAULT_PROFILE: str = os.environ.get("DEFAULT_PROFILE", "strauss")
 DEFAULT_MODEL: str = os.environ.get("DEFAULT_MODEL", "claude-sonnet-4-5")
-MAX_TOKENS: int = int(os.environ.get("MAX_TOKENS", "1024"))
+MAX_TOKENS: int = int(os.environ.get("MAX_TOKENS", "4096"))
 MAX_TOOL_HOPS: int = int(os.environ.get("MAX_TOOL_HOPS", "8"))
 
 SESSION_TTL: int = int(os.environ.get("SESSION_TTL_SECONDS", "1800"))
@@ -42,24 +42,28 @@ MODEL_REGISTRY: dict[str, dict] = {
         "model": "claude-opus-4-7",
         "label": "Claude Opus 4.7",
         "vendor": "Anthropic",
+        "thinking_budget": 2048,
     },
     "claude-sonnet-4-6": {
         "provider": "anthropic",
         "model": "claude-sonnet-4-6",
         "label": "Claude Sonnet 4.6",
         "vendor": "Anthropic",
+        "thinking_budget": 1500,
     },
     "claude-sonnet-4-5": {
         "provider": "anthropic",
         "model": "claude-sonnet-4-5",
         "label": "Claude Sonnet 4.5",
         "vendor": "Anthropic",
+        "thinking_budget": 1500,
     },
     "claude-opus-4-5": {
         "provider": "anthropic",
         "model": "claude-opus-4-5",
         "label": "Claude Opus 4.5",
         "vendor": "Anthropic",
+        "thinking_budget": 2048,
     },
     "kimi-k2.6": {
         "provider": "openai_compat",
