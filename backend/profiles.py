@@ -1,8 +1,9 @@
 """Agent profile loading.
 
-Profiles keep persona and knowledge-base choices out of the reusable engine.
-The default Strauss profile lives under profiles/strauss/, but the engine can
-run another profile by loading a different profile.json + system prompt.
+Profiles keep persona and knowledge-base choices out of the reusable EasyAgent
+engine. The bundled `strauss` example profile lives under profiles/strauss/, but
+the engine can run another profile by loading a different profile.json + system
+prompt.
 """
 from __future__ import annotations
 

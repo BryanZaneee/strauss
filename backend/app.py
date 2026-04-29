@@ -44,7 +44,7 @@ from backend.providers.base import LLMProvider
 from backend.profiles import AgentProfile, load_profile
 
 configure_logging(level=getattr(logging, LOG_LEVEL.upper(), logging.INFO))
-log = logging.getLogger("strauss")
+log = logging.getLogger("easyagent")
 
 # Providers wired up behind the shared engine.
 REGISTERED_PROVIDERS: set[str] = {"anthropic", "openai_compat", "gemini"}
@@ -103,7 +103,7 @@ def get_profile(profile_id: str = DEFAULT_PROFILE) -> AgentProfile:
         raise HTTPException(status_code=400, detail=f"profile not found: {profile_id}") from e
 
 
-app = FastAPI(title="Strauss", version="0.1.0")
+app = FastAPI(title="EasyAgent", version="0.1.0")
 
 limiter = Limiter(key_func=get_remote_address, enabled=RATE_LIMIT_ENABLED)
 app.state.limiter = limiter

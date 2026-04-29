@@ -4,7 +4,7 @@ This file is for Codex (and other agents) working in this repo. Read it before m
 
 ## Project Overview
 
-Strauss is a portable framework for reusable agentic AI across multiple model providers. Bryan's personal site can run one profile on top of it, but the engine is meant to support many professional agent profiles with different knowledge bases and tools.
+EasyAgent is a portable framework for reusable agentic AI across multiple model providers. Bryan's personal site runs a profile on top of it (the bundled `strauss` showcase profile under `profiles/strauss/`), but the engine is meant to support many professional agent profiles with different knowledge bases and tools.
 
 ## Tech Stack
 
@@ -25,6 +25,9 @@ cp .env.example .env  # set one or more provider keys locally; never commit secr
 .venv/bin/python -m uvicorn backend.app:app --reload --port 8001  # backend
 .venv/bin/python -m http.server 8000 --directory web              # frontend
 ```
+
+### VPS Deployment
+The application is deployed on a VPS. Connect using: `ssh root@100.88.216.70`
 
 ## Architecture (one-screen tour)
 
@@ -68,8 +71,8 @@ Agent persona and KB root are loaded from [`profiles/`](profiles/) through [`bac
 - [`backend/app.py`](backend/app.py) — FastAPI: POST `/api/chat` (SSE), GET `/api/models`, GET `/api/health`
 - [`backend/config.py`](backend/config.py) — env loading, `MODEL_REGISTRY`, limits
 - `web/` — vanilla chat UI, palette/fonts borrowed from `bryanzane_v3`
-- `profiles/` — reusable agent profiles; `profiles/strauss/` is the default
-- `kb/` — local/private content such as resume files, project notes, and codebase XML dumps; ignored by git
+- `profiles/` — reusable agent profiles; `profiles/strauss/` is the bundled example (default)
+- `kb/` — local/private content such as resume files, project notes, and codebase XML dumps; ignored by git (only `kb/README.md` is tracked)
 - [`tests/conftest.py`](tests/conftest.py) — `use_mini_kb` autouse fixture monkeypatches `KB_ROOT` to `tests/fixtures/mini_kb/`
 
 ## Conventions
@@ -97,7 +100,7 @@ Agent persona and KB root are loaded from [`profiles/`](profiles/) through [`bac
 - ✅ **Phase B**: `AnthropicProvider` + provider-agnostic loop + 4 mocked-provider tests
 - ✅ **Phase C**: FastAPI SSE + chat UI + 5 endpoint tests
 - ✅ **Phase D**: `OpenAICompatProvider` + `tool_translator.py` + Kimi K2.6 / GPT-5 wiring
-- ✅ **Profile split**: reusable engine + `profiles/strauss/` persona and KB root
+- ✅ **Profile split**: reusable engine (EasyAgent) + `profiles/strauss/` persona and KB root
 - ⏳ **Phase E**: prompt caching / usage overlay across providers
 - ⏳ **Phase F**: populate a local/private `kb/` (resume, quick_info, project pitches, meta) + smoke prompts
 - ✅ **Phase G**: production hardening — per-IP rate limit, daily token budget, active-session cap, structured JSON logs

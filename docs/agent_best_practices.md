@@ -37,7 +37,7 @@ This project treats each agent as a profile on top of a reusable engine. Keep th
 - Validate inputs at the tool boundary and return useful errors that the model can recover from.
 - Keep tools generic where possible so agents can compose them flexibly.
 - Profiles declare their allowed tools. The engine must not expose every tool to every profile by default.
-- Use bounded tool loops. Strauss uses `MAX_TOOL_HOPS` as a runaway-loop guard.
+- Use bounded tool loops. EasyAgent uses `MAX_TOOL_HOPS` as a runaway-loop guard.
 
 ## Streaming
 

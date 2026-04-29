@@ -1,4 +1,4 @@
-"""Strauss config — env loading + model registry.
+"""EasyAgent config — env loading + model registry.
 
 Reads .env on import. KB_ROOT is the trust boundary for all KB tools.
 """
@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-KB_ROOT: Path = Path(os.environ.get("STRAUSS_KB_ROOT", "./kb")).resolve()
-PROFILE_ROOT: Path = Path(os.environ.get("STRAUSS_PROFILE_ROOT", "./profiles")).resolve()
+KB_ROOT: Path = Path(os.environ.get("EASYAGENT_KB_ROOT", "./kb")).resolve()
+PROFILE_ROOT: Path = Path(os.environ.get("EASYAGENT_PROFILE_ROOT", "./profiles")).resolve()
 
 DEFAULT_PROFILE: str = os.environ.get("DEFAULT_PROFILE", "strauss")
 DEFAULT_MODEL: str = os.environ.get("DEFAULT_MODEL", "claude-sonnet-4-5")

@@ -1,8 +1,10 @@
-# Strauss — Architectural History
+# EasyAgent — Architectural History
 
 A running log of decisions that future agents (or future-me) can't recover from reading
 the source code alone. New decisions go at the top, dated. Each entry should answer
 **why** the choice was made and **what was rejected**.
+
+> **Naming note:** the framework is **EasyAgent**. The personal-site agent profile is **Strauss**, bundled under `profiles/strauss/` as the showcase example. Older entries below predate this rename and refer to the framework as "Strauss" — read them in that historical context.
 
 ---
 

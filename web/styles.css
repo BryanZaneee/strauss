@@ -1,4 +1,7 @@
-/* Strauss — chat UI styles. Editorial-blue palette borrowed from bryanzane_v3. */
+/* EasyAgent — chat UI styles for the bundled standalone demo.
+ * Strauss is the bundled showcase profile (see profiles/strauss/).
+ * Editorial palette borrowed from bryanzane_v3.
+ */
 
 :root {
   --bg-paper:  #FAFAF7;
@@ -10,9 +13,10 @@
   --ink-200:   #C7CBD4;
   --ink-100:   #E7E6DF;
   --rule:      rgba(12, 16, 28, 0.12);
-  --blue-900:  #0B1E4D;
-  --blue-500:  #3A66D1;
-  --blue-100:  #E6EDFB;
+  --orange-900: #5C1F00;
+  --orange-700: #B33C00;
+  --orange-500: #FF5500;
+  --orange-100: #FFE7DA;
 
   --serif: "Source Serif 4", Georgia, serif;
   --sans:  "Inter Tight", -apple-system, "Helvetica Neue", Arial, sans-serif;
@@ -52,16 +56,16 @@ html, body {
   text-transform: uppercase;
   color: var(--ink-500);
 }
-.hdr-mark { color: var(--blue-900); font-weight: 600; letter-spacing: 0.14em; }
+.hdr-mark { color: var(--orange-700); font-weight: 600; letter-spacing: 0.14em; }
 .hdr-slash { color: var(--ink-300); }
 .hdr-role { color: var(--ink-700); }
 .hdr-spacer { flex: 1; border-bottom: 1px dotted var(--ink-200); transform: translateY(-3px); }
 .hdr-link {
-  color: var(--blue-500);
+  color: var(--orange-500);
   text-decoration: none;
   border-bottom: 1px solid transparent;
 }
-.hdr-link:hover { border-bottom-color: var(--blue-500); }
+.hdr-link:hover { border-bottom-color: var(--orange-500); }
 
 /* ────── Chat layout ────── */
 
@@ -91,7 +95,7 @@ html, body {
   font-family: var(--sans);
   font-size: 0.92rem;
   color: var(--ink-500);
-  border-left: 2px solid var(--blue-100);
+  border-left: 2px solid var(--orange-100);
   padding: 0.2rem 0 0.2rem 0.9rem;
 }
 .msg-system .hint {
@@ -100,7 +104,7 @@ html, body {
   color: var(--ink-300);
   margin-top: 0.35rem;
 }
-.msg-system em { font-style: italic; color: var(--blue-900); }
+.msg-system em { font-style: italic; color: var(--orange-700); }
 
 .msg-user {
   font-family: var(--mono);
@@ -109,7 +113,7 @@ html, body {
 }
 .msg-user::before {
   content: "> ";
-  color: var(--blue-500);
+  color: var(--orange-500);
 }
 
 .msg-agent {
@@ -189,7 +193,7 @@ html, body {
   background-repeat: no-repeat;
   cursor: pointer;
 }
-.model-select:hover { border-color: var(--blue-500); }
+.model-select:hover { border-color: var(--orange-500); }
 .btn-ghost {
   font-family: var(--mono);
   font-size: 0.74rem;
@@ -202,7 +206,7 @@ html, body {
   cursor: pointer;
   margin-left: auto;
 }
-.btn-ghost:hover { color: var(--blue-900); border-color: var(--blue-500); }
+.btn-ghost:hover { color: var(--orange-700); border-color: var(--orange-500); }
 
 .chat-input-row {
   display: flex;
@@ -214,11 +218,11 @@ html, body {
   transition: border-color 120ms ease;
 }
 .chat-input-row:focus-within {
-  border-color: var(--blue-500);
+  border-color: var(--orange-500);
 }
 .chat-prompt {
   font-family: var(--mono);
-  color: var(--blue-500);
+  color: var(--orange-500);
 }
 .chat-input {
   flex: 1;
@@ -237,11 +241,11 @@ html, body {
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  background: var(--blue-900);
+  background: var(--orange-700);
   color: #fff;
   border: none;
   padding: 0.4rem 0.9rem;
   cursor: pointer;
 }
-.btn-send:hover { background: var(--blue-500); }
+.btn-send:hover { background: var(--orange-500); }
 .btn-send:disabled { background: var(--ink-300); cursor: not-allowed; }

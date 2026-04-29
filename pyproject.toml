@@ -1,7 +1,7 @@
 [project]
-name = "strauss"
+name = "easyagent"
 version = "0.1.0"
-description = "Portable framework for reusable agentic AI across Anthropic, OpenAI, Gemini, and Moonshot Kimi."
+description = "EasyAgent — portable framework for reusable agentic AI across Anthropic, OpenAI, Gemini, Moonshot Kimi, and DeepSeek."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Bryan Zane Smith", email = "bzane09@gmail.com" }]

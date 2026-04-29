@@ -1,14 +1,16 @@
-# Strauss
+# EasyAgent
 
-Strauss is a portable framework for building reusable agentic AI apps across different model providers.
+EasyAgent is a portable framework for building reusable agentic AI apps across different model providers.
 
 The goal is simple: define an agent profile, give it a focused local knowledge base and toolset, then run it through Claude, OpenAI, Gemini, Kimi, or DeepSeek without rewriting the workflow each time.
 
+`profiles/strauss/` is the bundled showcase profile (the personal-site agent for [bryanzane.com/strauss](https://bryanzane.com/strauss/)). Use it as a template for your own profiles.
+
 ## Why I Made It
 
-Strauss is built around portability and usability. Profiles, knowledge bases, model providers, and tools are separated so the same engine can be reused for different professional workflows, like a social media video manager, customer support bot, sales assistant, internal operations agent, or personal site agent.
+EasyAgent is built around portability and usability. Profiles, knowledge bases, model providers, and tools are separated so the same engine can be reused for different professional workflows, like a social media video manager, customer support bot, sales assistant, internal operations agent, or personal site agent.
 
-I will use it personally on my site, but the framework is meant to move anywhere.
+I use it personally on my site (Strauss profile), but the framework is meant to move anywhere.
 
 ## What It Does
 
@@ -20,6 +22,25 @@ I will use it personally on my site, but the framework is meant to move anywhere
 - Preserves provider-specific protocol details, such as DeepSeek thinking-mode `reasoning_content`, inside the server only
 - Adds production guardrails: per-IP chat rate limits, daily token budget tracking, active-session caps, and structured JSON logs
 - Keeps the core agent loop small enough to understand and change
+
+## Adding Agent Profiles
+
+Adding a new agent profile is straightforward and does not require git branches. The framework is designed to swap agents easily by adding a new folder under `profiles/`:
+
+1. **Create a directory:** `profiles/my-agent/`
+2. **Add `profile.json`:** Define the agent's identity, KB root, and tools:
+   ```json
+   {
+     "id": "my-agent",
+     "label": "My Custom Agent",
+     "kb_root": "kb/my-agent-kb",
+     "system_prompt_path": "profiles/my-agent/system.md",
+     "tools": ["list_kb", "read_file", "search_kb"]
+   }
+   ```
+3. **Add `system.md`:** Write the system prompt defining the agent's persona.
+
+To use the new profile, change `DEFAULT_PROFILE=my-agent` in your `.env` file and restart the server.
 
 ## Privacy Boundary
 

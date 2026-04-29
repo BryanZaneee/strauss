@@ -1,8 +1,9 @@
-// Strauss — chat UI controller. Vanilla, no build step.
+// EasyAgent — chat UI controller for the standalone demo. Vanilla, no build step.
 // Talks to the FastAPI backend at /api/chat (SSE) and /api/models.
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
-const API_BASE = window.STRAUSS_API_BASE
+const API_BASE = window.EASYAGENT_API_BASE
+  || window.STRAUSS_API_BASE
   || (LOCAL_HOSTS.has(window.location.hostname) ? "http://127.0.0.1:8001" : "");
 
 const SESSION_KEY = "strauss-session";
