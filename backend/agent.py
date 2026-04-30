@@ -27,9 +27,11 @@ async def run_conversation_stream(
     profile = profile or load_profile()
     session["messages"].append(provider.format_user(user_message))
 
-    for _ in range(MAX_TOOL_HOPS):
+    for hop in range(MAX_TOOL_HOPS):
         tool_calls_pending: list[dict] = []
         stop_reason: str = "end_turn"
+        pending_usage: dict | None = None
+        had_thinking = False
 
         async for ev in provider.stream(
             model=model,
@@ -42,18 +44,30 @@ async def run_conversation_stream(
             if t == "text_delta":
                 yield {"event": "delta", "text": ev["text"]}
             elif t == "thinking_delta":
+                had_thinking = True
                 yield {"event": "thinking_delta", "text": ev["text"]}
             elif t == "tool_use_start":
                 yield {"event": "tool_use_start", "name": ev["name"]}
             elif t == "tool_use_complete":
                 tool_calls_pending.append(ev)
             elif t == "usage":
-                yield {"event": "usage", **ev["usage"]}
+                # Buffer usage and emit once we know the turn outcome — providers
+                # yield usage before message_done, so we can't classify in-flight.
+                pending_usage = ev["usage"]
             elif t == "message_done":
                 stop_reason = ev["stop_reason"]
             elif t == "error":
                 yield {"event": "error", "message": ev.get("text", "provider error")}
                 return
+
+        if pending_usage is not None:
+            if had_thinking:
+                category = "reasoning"
+            elif tool_calls_pending:
+                category = "tools"
+            else:
+                category = "response"
+            yield {"event": "usage", "category": category, "hop": hop, **pending_usage}
 
         if stop_reason != "tool_use":
             yield {"event": "done", "stop_reason": stop_reason}

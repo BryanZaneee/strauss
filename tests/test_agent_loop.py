@@ -117,7 +117,11 @@ class TestSingleTurnNoTools:
         # Two delta events with the streamed text, plus usage and done.
         deltas = [e["text"] for e in events if e["event"] == "delta"]
         assert "".join(deltas) == "Bryan is based in Florida."
-        assert any(e["event"] == "usage" for e in events)
+        usages = [e for e in events if e["event"] == "usage"]
+        assert len(usages) == 1
+        assert usages[0]["category"] == "response"
+        assert usages[0]["hop"] == 0
+        assert usages[0]["output_tokens"] == 5
         done = [e for e in events if e["event"] == "done"]
         assert len(done) == 1 and done[0]["stop_reason"] == "end_turn"
 
@@ -192,6 +196,12 @@ class TestOneToolHop:
         done = [e for e in events if e["event"] == "done"]
         assert len(done) == 1 and done[0]["stop_reason"] == "end_turn"
 
+        # Usage events are categorized: turn 1 dispatched a tool, turn 2 was the response.
+        usages = [e for e in events if e["event"] == "usage"]
+        assert len(usages) == 2
+        assert usages[0]["category"] == "tools" and usages[0]["hop"] == 0
+        assert usages[1]["category"] == "response" and usages[1]["hop"] == 1
+
     @pytest.mark.asyncio
     async def test_tool_error_surfaces_but_loop_continues(self, kb_root):
         # Turn 1: provider asks for a path that escapes the KB → run_tool returns is_error=True.
@@ -227,6 +237,51 @@ class TestOneToolHop:
         # The loop still completed normally (turn 2 ran, done emitted).
         assert provider.turn_index == 2
         assert any(e["event"] == "done" for e in events)
+
+
+class TestUsageCategorization:
+    """Per-turn usage events carry a category derived from observed provider events."""
+
+    @pytest.mark.asyncio
+    async def test_thinking_then_tool_classifies_as_reasoning(self, kb_root):
+        # Turn that emits thinking and then dispatches a tool → reasoning bucket
+        # (had_thinking wins regardless of tool_use, since the work was reasoning).
+        provider = FakeProvider(
+            [
+                [
+                    {"type": "thinking_delta", "text": "Let me think..."},
+                    {"type": "tool_use_start", "name": "get_resume_summary"},
+                    {"type": "tool_use_complete", "tool_use_id": "tu_r",
+                     "name": "get_resume_summary", "arguments": {}},
+                    {"type": "usage", "usage": {"input_tokens": 150, "output_tokens": 80,
+                                                 "cache_read_input_tokens": 0,
+                                                 "cache_creation_input_tokens": 0}},
+                    {"type": "message_done", "stop_reason": "tool_use"},
+                ],
+                [
+                    {"type": "text_delta", "text": "Done."},
+                    {"type": "usage", "usage": {"input_tokens": 200, "output_tokens": 2,
+                                                 "cache_read_input_tokens": 0,
+                                                 "cache_creation_input_tokens": 0}},
+                    {"type": "message_done", "stop_reason": "end_turn"},
+                ],
+            ]
+        )
+        session = {"messages": []}
+        events = await collect(
+            run_conversation_stream(
+                "tell me about Bryan",
+                session,
+                provider,
+                model="claude-sonnet-4-5",
+                profile=make_test_profile(kb_root),
+            )
+        )
+
+        usages = [e for e in events if e["event"] == "usage"]
+        assert len(usages) == 2
+        assert usages[0]["category"] == "reasoning"
+        assert usages[1]["category"] == "response"
 
 
 class TestHopLimit:
