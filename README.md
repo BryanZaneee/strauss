@@ -92,22 +92,6 @@ Start the frontend:
 
 Open `http://localhost:8000`.
 
-## Tests
-
-```bash
-.venv/bin/python -m pytest
-```
-
-## Shape
-
-```text
-backend/    agent loop, API, providers, tools, KB access
-profiles/   agent personas and tool allowlists
-kb/         local/private knowledge bases (ignored by git)
-web/        static chat UI
-tests/      pytest suite
-docs/       architecture notes and agent practices
-```
 
 ## License
 
