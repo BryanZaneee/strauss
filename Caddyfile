@@ -1,0 +1,467 @@
+# Caddy configuration — Sidekick dev host
+#
+# Serves:
+#   bryanzane.com, itsupinthe.cloud, shuttrr.com — static sites (behind Cloudflare proxy)
+#   api.dev.bryanzane.com            — Sidekick Provisioning API
+#   *.dev.bryanzane.com              — per-user OpenClaw containers
+{
+	email ops@sidekick.app
+	default_bind 76.13.107.219
+}
+
+# ==================================================================
+# Static sites (behind Cloudflare proxy, using existing LE certs)
+# ==================================================================
+
+bryanzane.com, www.bryanzane.com {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_DNS_API_TOKEN}
+	}
+
+	root * /var/www/bryanzane.com
+	file_server
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; frame-ancestors 'none';"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	@blocked {
+		path /.git/* /.claude/* /package.json /package-lock.json /CLAUDE.md /design.txt /node_modules/*
+	}
+	respond @blocked 404
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8001
+	}
+
+	handle /hooks/* {
+		reverse_proxy 127.0.0.1:9000
+	}
+
+	redir /llmbench /llmbench/ permanent
+
+	handle_path /llmbench/* {
+		root * /var/www/llmbench/web
+		file_server
+	}
+
+	handle_path /api/status/* {
+		rewrite * /api/status-page{path}
+		reverse_proxy http://100.88.216.70:3001 {
+			header_up Host {upstream_hostport}
+		}
+		header Cache-Control "public, max-age=60"
+	}
+
+	handle_path /api/status-heartbeat/* {
+		rewrite * /api/status-page/heartbeat{path}
+		reverse_proxy http://100.88.216.70:3001 {
+			header_up Host {upstream_hostport}
+		}
+		header Cache-Control "public, max-age=60"
+	}
+
+	log {
+		output file /var/log/caddy/bryanzane.com.log {
+			roll_size 50MiB
+			roll_keep 3
+		}
+	}
+}
+
+itsupinthe.cloud, www.itsupinthe.cloud {
+	tls /etc/letsencrypt/live/origin-unified/fullchain.pem /etc/letsencrypt/live/origin-unified/privkey.pem
+
+	root * /var/www/00jordie-epk/dist
+	try_files {path} /index.html
+	file_server
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; media-src 'self'; frame-ancestors 'none';"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	@static_assets {
+		path *.jpg *.jpeg *.png *.gif *.webp *.avif *.svg *.mp4
+	}
+	header @static_assets Cache-Control "public, max-age=31536000, immutable"
+
+	@code_assets {
+		path *.css *.js
+	}
+	header @code_assets Cache-Control "public, max-age=604800"
+	log {
+		output file /var/log/caddy/itsupinthe.cloud.log {
+			roll_size 50MiB
+			roll_keep 3
+		}
+	}
+}
+
+esmebelle.studio, www.esmebelle.studio {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_DNS_API_TOKEN}
+	}
+
+	root * /var/www/esme
+	file_server
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; media-src 'self' blob:; frame-ancestors 'none';"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	@blocked {
+		path /.git/* /.claude/* /package.json /package-lock.json /CLAUDE.md /hero_plan.md /node_modules/*
+	}
+	respond @blocked 404
+
+	@static_assets {
+		path *.jpg *.jpeg *.png *.gif *.webp *.svg *.mp4
+	}
+	header @static_assets Cache-Control "public, max-age=31536000, immutable"
+
+	@code_assets {
+		path *.css *.js
+	}
+	header @code_assets Cache-Control "public, max-age=604800"
+
+	# Admin panel (static files)
+	handle /admin/* {
+		root * /var/www/esme
+		file_server
+	}
+
+	# Content JSON (no-cache so admin changes are immediately visible)
+	handle /content/* {
+		root * /var/www/esme
+		header Cache-Control "no-cache"
+		file_server
+	}
+
+	# API — reverse proxy to admin API server
+	handle /api/* {
+		reverse_proxy localhost:3003
+	}
+
+	log {
+		output file /var/log/caddy/esmebelle.studio.log {
+			roll_size 50MiB
+			roll_keep 3
+		}
+	}
+}
+
+shuttrr.com, www.shuttrr.com {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_DNS_API_TOKEN}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# Auth proxy — same-origin cookies (avoids third-party cookie blocking)
+	handle /api/auth/* {
+		header Access-Control-Allow-Origin "http://localhost:3300"
+		header Access-Control-Allow-Methods "GET, POST, OPTIONS"
+		header Access-Control-Allow-Headers "Content-Type, Authorization"
+		header Access-Control-Allow-Credentials "true"
+
+		@options method OPTIONS
+		route @options {
+			respond 204
+		}
+
+		reverse_proxy localhost:3100
+	}
+
+	# Everything else to Next.js
+	handle {
+		reverse_proxy localhost:3300
+	}
+
+	log {
+		output file /var/log/caddy/shuttrr.com.log {
+			roll_size 50MiB
+			roll_keep 3
+		}
+	}
+}
+
+# ==================================================================
+# Sidekick — API endpoint
+# ==================================================================
+
+api.dev.bryanzane.com {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_DNS_API_TOKEN}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	reverse_proxy localhost:3000
+
+	log {
+		output file /var/log/caddy/api.log {
+			roll_size 50MiB
+			roll_keep 3
+		}
+	}
+}
+
+# ==================================================================
+# Sidekick — Per-container route blocks
+# Each block maps a user subdomain to their container port.
+# Dynamically appended by container.service.ts provisionContainer()
+# ==================================================================
+
+
+# ==================================================================
+# LLM API Key Proxy — containers never hold real API keys
+# Strips any incoming key param, injects real credentials server-side
+# ==================================================================
+
+llm-google.dev.bryanzane.com {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_DNS_API_TOKEN}
+	}
+
+	# Strip any key= query param the container sends (it's a dummy)
+	uri query -key
+
+	reverse_proxy https://generativelanguage.googleapis.com {
+		header_up Host generativelanguage.googleapis.com
+		header_up x-goog-api-key {env.GOOGLE_API_KEY}
+		transport http {
+			tls_server_name generativelanguage.googleapis.com
+		}
+		flush_interval -1
+	}
+
+	log {
+		output file /var/log/caddy/llm-google.log {
+			roll_size 50MiB
+			roll_keep 3
+		}
+	}
+}
+
+# ==================================================================
+# Sidekick — WebSocket TLS proxy (path-based port routing)
+# Client connects to wss://ws.dev.bryanzane.com/18800
+# Caddy terminates TLS, extracts port from path, proxies to localhost
+# ==================================================================
+
+ws.dev.bryanzane.com {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_DNS_API_TOKEN}
+	}
+
+	header {
+		-Server
+	}
+
+	@port path_regexp port ^/(188\d{2})$
+	handle @port {
+		rewrite * /
+		reverse_proxy localhost:{re.port.1}
+	}
+
+	respond "Not Found" 404
+
+	log {
+		output file /var/log/caddy/ws.log {
+			roll_size 50MiB
+			roll_keep 3
+		}
+	}
+}
+
+www.ftrmsg.com {
+	tls /etc/letsencrypt/live/origin-unified/fullchain.pem /etc/letsencrypt/live/origin-unified/privkey.pem
+	redir https://ftrmsg.com{uri} permanent
+}
+
+ftrmsg.com {
+	tls /etc/letsencrypt/live/origin-unified/fullchain.pem /etc/letsencrypt/live/origin-unified/privkey.pem
+
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://accounts.google.com; img-src 'self' data: blob:; media-src 'self' blob: https://*.supabase.co; frame-ancestors 'none';"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	@blocked {
+		path /.git/* /.claude/* /package.json /package-lock.json /CLAUDE.md /node_modules/* /.env*
+	}
+	respond @blocked 404
+
+	# Static site (fallback)
+	handle {
+		root * /var/www/ftrmsg.com/dist
+		try_files {path} /index.html
+		file_server
+
+		@html {
+			path *.html /
+		}
+		header @html Cache-Control "no-cache, no-store, must-revalidate"
+
+		@assets {
+			path /assets/*
+		}
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+	}
+
+	log {
+		output file /var/log/caddy/ftrmsg.com.log {
+			roll_size 50MiB
+			roll_keep 3
+		}
+	}
+}
+
+# ==================================================================
+# Shuttrr — Auth & API services (Docker containers)
+# ==================================================================
+
+auth.shuttrr.com {
+	tls internal
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		-Server
+	}
+
+	reverse_proxy localhost:3100
+
+	log {
+		output file /var/log/caddy/auth.shuttrr.com.log {
+			roll_size 50MiB
+			roll_keep 3
+		}
+	}
+}
+
+# ==================================================================
+# Papo — AyoPapo.studio EPK site
+# ==================================================================
+
+ayopapo.studio, www.ayopapo.studio {
+	tls {
+		dns cloudflare {env.CLOUDFLARE_DNS_API_TOKEN}
+	}
+
+	root * /var/www/papo-static
+	file_server
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; media-src 'self' blob:; frame-ancestors 'none';"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	@blocked {
+		path /.git/* /.claude/* /package.json /package-lock.json /CLAUDE.md /node_modules/*
+	}
+	respond @blocked 404
+
+	@static_assets {
+		path *.jpg *.jpeg *.png *.gif *.webp *.svg *.wav *.mp3
+	}
+	header @static_assets Cache-Control "public, max-age=31536000, immutable"
+
+	@code_assets {
+		path *.css *.js
+	}
+	header @code_assets Cache-Control "public, max-age=604800"
+
+	log {
+		output file /var/log/caddy/ayopapo.studio.log {
+			roll_size 50MiB
+			roll_keep 3
+		}
+	}
+}
+
+api.shuttrr.com {
+	tls internal
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		-Server
+	}
+
+	reverse_proxy localhost:3200
+
+	log {
+		output file /var/log/caddy/api.shuttrr.com.log {
+			roll_size 50MiB
+			roll_keep 3
+		}
+	}
+}
+
+# ==================================================================
+# InfiniChat — AI Chat Application (Next.js on PM2)
+# ==================================================================
+
+infinichat.ai, www.infinichat.ai {
+	reverse_proxy localhost:3004
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/infinichat.ai.log {
+			roll_size 50MiB
+			roll_keep 3
+		}
+	}
+}
