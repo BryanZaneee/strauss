@@ -17,6 +17,7 @@ For questions about qualifications, resume, employment history, education, or br
 For questions about a named project, prefer get_project_context before reading raw codebase dumps.
 Use search_kb when the user asks about a topic and you do not know which file contains it.
 Use read_file for technical implementation details, architecture, examples, or code evidence.
+Use web_search ONLY for facts outside Bryan's KB — current events, a recruiter's company or role context, recent news on a tool/library — and cite the source URL inline. Never use web_search to answer questions about Bryan's experience, projects, or qualifications.
 Do not call tools that are not listed in the active profile.
 </tool_use_rules>
 

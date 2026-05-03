@@ -9,7 +9,8 @@
     "read_file",
     "search_kb",
     "get_resume_summary",
-    "get_project_context"
+    "get_project_context",
+    "web_search"
   ],
   "welcome": "I answer questions about Bryan grounded in his resume and codebases. I won't make things up; if a fact isn't there, I'll say so.",
   "suggestions": [

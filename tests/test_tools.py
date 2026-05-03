@@ -233,3 +233,107 @@ class TestSchemas:
             if result.is_error:
                 # Acceptable: missing required arg. NOT acceptable: "unknown tool".
                 assert "unknown tool" not in payload.get("error", "")
+
+
+# --------------------------------------------------------------------------- #
+# web_search
+# --------------------------------------------------------------------------- #
+
+class _StubResponse:
+    def __init__(self, status_code: int, payload: dict | None = None, text: str = ""):
+        self.status_code = status_code
+        self._payload = payload or {}
+        self.text = text
+
+    def json(self):
+        return self._payload
+
+
+class TestWebSearch:
+    def test_dispatch_success(self, monkeypatch):
+        monkeypatch.setenv("TAVILY_API_KEY", "fake-key")
+        captured: dict = {}
+
+        def fake_post(url, json, timeout):  # noqa: A002
+            captured["url"] = url
+            captured["json"] = json
+            return _StubResponse(
+                200,
+                {
+                    "query": "fastapi sse",
+                    "answer": "Server-Sent Events in FastAPI use StreamingResponse.",
+                    "results": [
+                        {
+                            "title": "FastAPI docs",
+                            "url": "https://fastapi.tiangolo.com/",
+                            "content": "SSE example...",
+                            "score": 0.91,
+                        }
+                    ],
+                },
+            )
+
+        import backend.web_search as ws
+        monkeypatch.setattr(ws.httpx, "post", fake_post)
+
+        result = run_tool(
+            "web_search",
+            {"query": "fastapi sse", "max_results": 3},
+            tool_use_id="ws1",
+        )
+        assert result.is_error is False
+        body = json.loads(result.content)
+        assert body["query"] == "fastapi sse"
+        assert body["results"][0]["url"] == "https://fastapi.tiangolo.com/"
+        assert captured["url"].startswith("https://api.tavily.com/")
+        assert captured["json"]["api_key"] == "fake-key"
+        assert captured["json"]["max_results"] == 3
+
+    def test_missing_api_key_returns_is_error(self, monkeypatch):
+        monkeypatch.delenv("TAVILY_API_KEY", raising=False)
+        result = run_tool("web_search", {"query": "anything"}, tool_use_id="ws2")
+        assert result.is_error is True
+        assert "TAVILY_API_KEY" in json.loads(result.content)["error"]
+
+    def test_empty_query_returns_is_error(self, monkeypatch):
+        monkeypatch.setenv("TAVILY_API_KEY", "fake-key")
+        result = run_tool("web_search", {"query": "  "}, tool_use_id="ws3")
+        assert result.is_error is True
+
+    def test_http_error_surfaced(self, monkeypatch):
+        monkeypatch.setenv("TAVILY_API_KEY", "fake-key")
+
+        def fake_post(url, json, timeout):  # noqa: A002
+            return _StubResponse(429, text="rate limit")
+
+        import backend.web_search as ws
+        monkeypatch.setattr(ws.httpx, "post", fake_post)
+
+        result = run_tool("web_search", {"query": "x"}, tool_use_id="ws4")
+        assert result.is_error is True
+        assert "rate limited" in json.loads(result.content)["error"].lower()
+
+    def test_max_results_clamped(self, monkeypatch):
+        monkeypatch.setenv("TAVILY_API_KEY", "fake-key")
+        captured: dict = {}
+
+        def fake_post(url, json, timeout):  # noqa: A002
+            captured["json"] = json
+            return _StubResponse(200, {"query": "x", "answer": "", "results": []})
+
+        import backend.web_search as ws
+        monkeypatch.setattr(ws.httpx, "post", fake_post)
+
+        run_tool("web_search", {"query": "x", "max_results": 999}, tool_use_id="ws5")
+        assert captured["json"]["max_results"] == 10
+
+    def test_blocked_when_not_in_allowlist(self, monkeypatch):
+        monkeypatch.setenv("TAVILY_API_KEY", "fake-key")
+        result = run_tool(
+            "web_search",
+            {"query": "x"},
+            tool_use_id="ws6",
+            allowed_tools=("read_file",),
+        )
+        assert result.is_error is True
+        assert "not enabled" in json.loads(result.content)["error"]

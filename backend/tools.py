@@ -18,6 +18,7 @@ from backend.kb_loader import (
     read_file,
     search_kb,
 )
+from backend.web_search import WebSearchError, web_search
 
 SCHEMAS: list[dict[str, Any]] = [
     {
@@ -121,6 +122,39 @@ SCHEMAS: list[dict[str, Any]] = [
             "required": ["project_name"],
         },
     },
+    {
+        "name": "web_search",
+        "description": (
+            "Search the public web for up-to-date information not in the knowledge base. "
+            "Use for recent news, current events, company/person/technology lookups, or to "
+            "verify a fact that may have changed since the KB was last updated. "
+            "Do NOT use for questions about Bryan's resume or projects — those live in the KB. "
+            "Returns a synthesized answer plus ranked results with title, url, and a short "
+            "content snippet. Cite the URL when you use a result in your reply."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Natural-language search query.",
+                },
+                "max_results": {
+                    "type": "integer",
+                    "description": "How many results to return (1-10, default 5).",
+                },
+                "search_depth": {
+                    "type": "string",
+                    "enum": ["basic", "advanced"],
+                    "description": (
+                        "'basic' is faster and cheaper; 'advanced' returns deeper snippets "
+                        "for harder queries. Default 'basic'."
+                    ),
+                },
+            },
+            "required": ["query"],
+        },
+    },
 ]
 
 SCHEMAS_BY_NAME: dict[str, dict[str, Any]] = {s["name"]: s for s in SCHEMAS}
@@ -181,6 +215,13 @@ def run_tool(
             out = get_resume_summary(root=root)
         elif name == "get_project_context":
             out = get_project_context(arguments["project_name"], root=root)
+        elif name == "web_search":
+            out = web_search(
+                arguments["query"],
+                max_results=arguments.get("max_results", 5),
+                search_depth=arguments.get("search_depth", "basic"),
+                include_answer=arguments.get("include_answer", True),
+            )
         else:
             return ToolResult(
                 tool_use_id=tool_use_id,
@@ -195,6 +236,13 @@ def run_tool(
             is_error=False,
         )
     except KBError as e:
+        return ToolResult(
+            tool_use_id=tool_use_id,
+            name=name,
+            content=json.dumps({"error": str(e)}),
+            is_error=True,
+        )
+    except WebSearchError as e:
         return ToolResult(
             tool_use_id=tool_use_id,
             name=name,
