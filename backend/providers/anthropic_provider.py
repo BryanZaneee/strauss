@@ -100,9 +100,13 @@ class AnthropicProvider:
 
 
 def _norm_usage(u: Any) -> dict:
+    # Anthropic streaming usage rolls extended-thinking tokens into output_tokens
+    # without a per-stream split. Expose 0 reasoning_tokens so the field is
+    # consistent across providers.
     return {
         "input_tokens": getattr(u, "input_tokens", 0) or 0,
         "output_tokens": getattr(u, "output_tokens", 0) or 0,
+        "reasoning_tokens": 0,
         "cache_read_input_tokens": getattr(u, "cache_read_input_tokens", 0) or 0,
         "cache_creation_input_tokens": getattr(u, "cache_creation_input_tokens", 0) or 0,
     }

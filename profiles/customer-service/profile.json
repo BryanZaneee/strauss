@@ -1,0 +1,15 @@
+{
+  "id": "customer-service",
+  "label": "Customer Service",
+  "description": "Tier-1 customer-service agent for a small business website chat widget. Bundled example: Lantern Lane Coffee.",
+  "kb_root": "profiles/customer-service/kb",
+  "system_prompt_path": "profiles/customer-service/system.md",
+  "tools": ["list_kb", "read_file", "search_kb"],
+  "mcp_servers": [],
+  "welcome": "Hi! I'm the Lantern Lane Coffee assistant. Ask about hours, the menu, ordering, or events — I'll only answer from what I actually know, and I'll flag a teammate to follow up if I can't help.",
+  "suggestions": [
+    "What are your hours?",
+    "Do you have oat milk?",
+    "Can I book the back room for an event?"
+  ]
+}

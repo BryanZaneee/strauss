@@ -201,11 +201,23 @@ def _norm_usage(u: Any) -> dict:
     output_tokens = getattr(u, "completion_tokens", None)
     if output_tokens is None:
         output_tokens = getattr(u, "output_tokens", 0) or 0
+    # OpenAI o1-style + DeepSeek thinking models report reasoning tokens inside
+    # completion_tokens_details. They are a subset of completion_tokens, not in
+    # addition to them — surface separately so the UI can break out the share.
+    reasoning_tokens = 0
+    details = getattr(u, "completion_tokens_details", None)
+    if details is not None:
+        reasoning_tokens = (
+            getattr(details, "reasoning_tokens", None)
+            or (details.get("reasoning_tokens", 0) if isinstance(details, dict) else 0)
+            or 0
+        )
     # DeepSeek surfaces KV-cache hits as prompt_cache_hit_tokens; absent on other providers.
     cache_hit = getattr(u, "prompt_cache_hit_tokens", 0) or 0
     return {
         "input_tokens": input_tokens or 0,
         "output_tokens": output_tokens or 0,
+        "reasoning_tokens": reasoning_tokens,
         "cache_read_input_tokens": cache_hit,
         "cache_creation_input_tokens": 0,
     }

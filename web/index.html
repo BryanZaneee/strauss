@@ -10,10 +10,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css" />
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
+  <script src="lib/markdown.js?v=1" defer></script>
 </head>
 <body>
   <header class="hdr">
@@ -37,8 +41,23 @@
     <form class="chat-form" id="chat-form" autocomplete="off">
       <div class="chat-controls">
         <span class="model-static">DeepSeek V4 Flash</span>
+        <label class="agent-select-wrap">
+          <span class="agent-select-label">agent</span>
+          <select id="agent-select" class="agent-select" aria-label="Choose an agent profile"></select>
+        </label>
         <button type="button" id="new-chat" class="btn-ghost" title="Start a fresh conversation">new chat</button>
       </div>
+      <details class="agent-info" id="agent-info">
+        <summary>agent details</summary>
+        <div class="agent-info-body">
+          <div class="agent-info-row"><span class="agent-info-label">about</span><span id="agent-info-desc" class="agent-info-value">&mdash;</span></div>
+          <div class="agent-info-row"><span class="agent-info-label">tools</span><span id="agent-info-tools" class="agent-info-value">&mdash;</span></div>
+          <div class="agent-info-row"><span class="agent-info-label">mcp</span><span id="agent-info-mcp" class="agent-info-value">none configured</span></div>
+          <div class="agent-info-row"><span class="agent-info-label">last turn</span><span id="agent-info-last" class="agent-info-value">&mdash;</span></div>
+          <div class="agent-info-row"><span class="agent-info-label">speed</span><span id="agent-info-speed" class="agent-info-value">&mdash;</span></div>
+          <div class="agent-info-row"><span class="agent-info-label">session</span><span id="agent-info-session" class="agent-info-value">in 0 &middot; out 0 &middot; cache 0 &middot; 0 hops</span></div>
+        </div>
+      </details>
       <div class="chat-input-row">
         <span class="chat-prompt">&gt;</span>
         <input
@@ -55,6 +74,6 @@
     </form>
   </main>
 
-  <script src="app.js?v=3" defer></script>
+  <script src="app.js?v=6" defer></script>
 </body>
 </html>

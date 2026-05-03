@@ -65,12 +65,13 @@ Agent persona and KB root are loaded from [`profiles/`](profiles/) through [`bac
 - [`backend/profiles.py`](backend/profiles.py) — profile loader for persona + KB root
 - [`backend/tools.py`](backend/tools.py) — `SCHEMAS` (Anthropic shape) + `run_tool` dispatcher + `ToolResult`
 - [`backend/kb_loader.py`](backend/kb_loader.py) — `_safe_resolve()` is the trust boundary; everything else uses it
-- [`backend/app.py`](backend/app.py) — FastAPI: POST `/api/chat` (SSE), GET `/api/models`, GET `/api/health`, GET `/api/budget`, GET `/api/profile`
+- [`backend/app.py`](backend/app.py) — FastAPI: POST `/api/chat` (SSE), GET `/api/models`, GET `/api/health`, GET `/api/budget`, GET `/api/profile`, GET `/api/profiles` (lists all bundled profiles for the agent switcher)
 - [`backend/config.py`](backend/config.py) — env loading, `MODEL_REGISTRY`, limits, rate-limit + budget knobs
 - [`backend/budget.py`](backend/budget.py) — process-local `TOKEN_BUDGET` enforced before each chat and recorded after; resets on local-date change
 - [`backend/logging_config.py`](backend/logging_config.py) — `configure_logging()` installs a JSON-line stdout formatter; `extra={...}` fields merge into the record
-- `web/` — vanilla chat UI, palette/fonts borrowed from `bryanzane_v3`
-- `profiles/` — reusable agent profiles; `profiles/strauss/` is the bundled example (default)
+- `web/` — vanilla chat UI, palette/fonts borrowed from `bryanzane_v3`. Includes the agent switcher dropdown and the collapsible agent-info panel that surfaces description, tools, MCP servers, and per-turn token classification
+- `profiles/` — reusable agent profiles loaded by the engine; `profiles/strauss/` is the personal showcase (default), `profiles/customer-service/` is the in-widget tier-1 small-business demo (Lantern Lane Coffee) with a self-contained KB and a `TEMPLATE.md` adaptation guide
+- `profiles-advanced/` — placeholder for tier-2 multi-channel/multi-tenant profiles (WhatsApp/IG/Gmail/GBP). Sibling of `profiles/` so the loader does not pick it up
 - `kb/` — local/private content such as resume files, project notes, and codebase XML dumps; ignored by git (only `kb/README.md` is tracked)
 - [`tests/conftest.py`](tests/conftest.py) — autouse fixtures: `use_mini_kb` (points `KB_ROOT` at `tests/fixtures/mini_kb/`) and `reset_budget` (clears `TOKEN_BUDGET` between tests)
 
@@ -104,3 +105,17 @@ Agent persona and KB root are loaded from [`profiles/`](profiles/) through [`bac
 - ⏳ **Phase E**: prompt caching / usage overlay across providers
 - ⏳ **Phase F**: populate a local/private `kb/` (resume, quick_info, project pitches, meta) + smoke prompts
 - ✅ **Phase G**: production hardening — per-IP `slowapi` rate limit on `/api/chat`, `TOKEN_BUDGET` daily cap with `/api/budget` introspection, `MAX_ACTIVE_SESSIONS` cap with lazy stale-session sweep, JSON-line structured logs via `_instrument()` per chat completion
+- ✅ **Customer-service profile + agent switcher**: bundled `profiles/customer-service/` (Lantern Lane Coffee) + sibling `profiles-advanced/` placeholder + `mcp_servers` schema field on `AgentProfile` (parsed; full MCP integration deferred) + `GET /api/profiles` endpoint + web UI agent switcher dropdown and details panel showing description, tools, MCP servers, and per-turn classified token usage
+
+## VPS / deployment access
+
+- **SSH**: `ssh root@100.88.216.70` (Tailscale IP; the public Caddy bind for HTTPS is `76.13.107.219`).
+- **Project root on VPS**: `/opt/easyagent`.
+- **systemd unit**: `easyagent.service` (uvicorn FastAPI on `127.0.0.1:8001`, fronted by Caddy at `bryanzane.com/api/*`).
+- **Code deploys** are webhook-triggered through [`deploy.sh`](deploy.sh) on the VPS: `git fetch origin main && git reset --hard origin/main && systemctl restart easyagent`.
+- **KB syncs (`kb/`) are manual.** `kb/` is gitignored (see history.md "Personal KB content stays out of the public repository"), so a code deploy never carries resume/project/codebase content. After updating local `kb/`, push it explicitly:
+  ```bash
+  rsync -avz --delete --exclude='.DS_Store' --exclude='.localized' \
+    kb/ root@100.88.216.70:/opt/easyagent/kb/
+  ssh root@100.88.216.70 systemctl restart easyagent
+  ```

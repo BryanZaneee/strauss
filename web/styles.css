@@ -188,7 +188,50 @@ html, body {
   background: none;
   padding: 0;
   font-size: inherit;
+  color: var(--ink-900);
 }
+
+/* highlight.js token theme for the cream/orange editorial palette.
+   Class names mirror highlight.js output (.hljs-*). */
+.msg-agent .hljs-comment,
+.msg-agent .hljs-quote { color: var(--ink-400); font-style: italic; }
+.msg-agent .hljs-keyword,
+.msg-agent .hljs-selector-tag,
+.msg-agent .hljs-literal,
+.msg-agent .hljs-section,
+.msg-agent .hljs-link { color: var(--orange-700); }
+.msg-agent .hljs-string,
+.msg-agent .hljs-attr,
+.msg-agent .hljs-attribute,
+.msg-agent .hljs-symbol { color: #2C5E2E; }
+.msg-agent .hljs-number,
+.msg-agent .hljs-meta,
+.msg-agent .hljs-built_in,
+.msg-agent .hljs-builtin-name { color: #6B4BA0; }
+.msg-agent .hljs-title,
+.msg-agent .hljs-title.class_,
+.msg-agent .hljs-title.function_,
+.msg-agent .hljs-name { color: #1F4F8E; font-weight: 500; }
+.msg-agent .hljs-type,
+.msg-agent .hljs-variable.language_,
+.msg-agent .hljs-tag { color: #8A3324; }
+.msg-agent .hljs-regexp,
+.msg-agent .hljs-template-tag,
+.msg-agent .hljs-template-variable { color: #6B4BA0; }
+.msg-agent .hljs-deletion { color: #8A3324; }
+.msg-agent .hljs-addition { color: #2C5E2E; }
+.msg-agent .hljs-emphasis { font-style: italic; }
+.msg-agent .hljs-strong { font-weight: 600; }
+
+/* KaTeX block math: centered, breathing room, scrolls if too wide. */
+.msg-agent .ea-math-block {
+  margin: 0.75rem 0 0.95rem;
+  overflow-x: auto;
+  text-align: center;
+}
+.msg-agent .ea-math-block .katex-display { margin: 0; }
+.msg-agent .katex { font-size: 1.05em; }
+.msg-thinking .thinking-content .katex { font-size: 0.95em; }
 .msg-agent blockquote {
   margin: 0.6rem 0 0.9rem;
   padding: 0.1rem 0 0.1rem 0.9rem;
@@ -402,3 +445,93 @@ html, body {
 }
 .btn-send:hover { background: var(--orange-500); }
 .btn-send:disabled { background: var(--ink-300); cursor: not-allowed; }
+
+/* ────── Agent switcher + info panel ────── */
+
+.agent-select-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--rule);
+  padding: 0.14rem 0.45rem 0.14rem 0.5rem;
+  background: #fff;
+}
+.agent-select-label {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: var(--ink-400);
+}
+.agent-select {
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-700);
+  background: transparent;
+  border: none;
+  padding: 0.06rem 0.1rem;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-400) 50%),
+                    linear-gradient(135deg, var(--ink-400) 50%, transparent 50%);
+  background-position: calc(100% - 9px) 50%, calc(100% - 5px) 50%;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  padding-right: 1.1rem;
+}
+.agent-select:focus { outline: none; color: var(--orange-700); }
+
+.agent-info {
+  margin: 0.55rem 0 0.35rem;
+  border: 1px solid var(--rule);
+  background: var(--bg-paper-2);
+  font-family: var(--mono);
+  font-size: 0.74rem;
+  color: var(--ink-500);
+}
+.agent-info > summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  padding: 0.35rem 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-400);
+}
+.agent-info > summary::-webkit-details-marker { display: none; }
+.agent-info > summary::before {
+  content: "+ ";
+  display: inline-block;
+  margin-right: 0.2rem;
+  color: var(--ink-300);
+}
+.agent-info[open] > summary::before { content: "− "; }
+.agent-info > summary:hover { color: var(--orange-700); }
+
+.agent-info-body {
+  padding: 0.2rem 0.7rem 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  border-top: 1px dotted var(--ink-200);
+}
+.agent-info-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  line-height: 1.45;
+}
+.agent-info-label {
+  flex: 0 0 5.5rem;
+  color: var(--ink-300);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.agent-info-value {
+  flex: 1 1 auto;
+  color: var(--ink-700);
+  word-break: break-word;
+}

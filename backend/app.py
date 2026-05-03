@@ -33,6 +33,7 @@ from backend.config import (
     MAX_ACTIVE_SESSIONS,
     MAX_TURNS_PER_SESSION,
     MODEL_REGISTRY,
+    PROFILE_ROOT,
     RATE_LIMIT_CHAT,
     RATE_LIMIT_ENABLED,
     SESSION_TTL,
@@ -163,7 +164,30 @@ async def profile(profile_id: str = DEFAULT_PROFILE) -> dict:
         "welcome": p.welcome,
         "suggestions": list(p.suggestions),
         "tools": list(p.tools),
+        "mcp_servers": [s.get("name", "") for s in p.mcp_servers if isinstance(s, dict)],
     }
+
+
+@app.get("/api/profiles")
+async def list_profiles() -> dict:
+    """List every profile with a profile.json under PROFILE_ROOT. Powers the agent switcher."""
+    out: list[dict] = []
+    if PROFILE_ROOT.is_dir():
+        for entry in sorted(PROFILE_ROOT.iterdir()):
+            if not entry.is_dir() or not (entry / "profile.json").exists():
+                continue
+            try:
+                p = load_profile(entry.name)
+            except Exception:
+                continue
+            out.append({
+                "id": p.id,
+                "label": p.label,
+                "description": p.description,
+                "tools": list(p.tools),
+                "mcp_servers": [s.get("name", "") for s in p.mcp_servers if isinstance(s, dict)],
+            })
+    return {"default": DEFAULT_PROFILE, "profiles": out}
 
 
 @app.post("/api/chat")

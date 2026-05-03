@@ -4,7 +4,11 @@ EasyAgent is a portable framework for building reusable agentic AI apps across d
 
 The goal is simple: define an agent profile, give it a focused local knowledge base and toolset, then run it through Claude, OpenAI, Gemini, Kimi, or DeepSeek without rewriting the workflow each time.
 
-`profiles/strauss/` is the bundled showcase profile (the personal-site agent for [bryanzane.com/strauss](https://bryanzane.com/strauss/)). Use it as a template for your own profiles.
+`profiles/strauss/` is the bundled showcase profile (the personal-site agent for [bryanzane.com/strauss](https://bryanzane.com/strauss/)). `profiles/customer-service/` is a second bundled profile — a tier-1 in-widget customer-service agent for a fictional small business (Lantern Lane Coffee) that ships with realistic KB content and a `TEMPLATE.md` describing what to swap to adapt it for a real business. Use either as a template for your own profiles.
+
+The web chat widget includes an **agent switcher** in the controls strip — pick a profile from the dropdown to see how its persona, tools, MCP servers, and per-turn token usage differ. Switching resets the conversation.
+
+A sibling top-level folder, [`profiles-advanced/`](./profiles-advanced/), is reserved for tier-2 multi-channel/multi-tenant agents (WhatsApp, Instagram, Gmail, Google Business). It is intentionally outside `profiles/` so the in-widget loader does not pick it up — see its README for details.
 
 ## Why I Made It
 
@@ -40,7 +44,9 @@ Adding a new agent profile is straightforward and does not require git branches.
    ```
 3. **Add `system.md`:** Write the system prompt defining the agent's persona.
 
-To use the new profile, change `DEFAULT_PROFILE=my-agent` in your `.env` file and restart the server.
+To use the new profile, change `DEFAULT_PROFILE=my-agent` in your `.env` file and restart the server, or pick it from the agent switcher dropdown in the web UI without changing the default.
+
+`profile.json` also accepts an `mcp_servers` array — each entry mirrors the standard MCP stdio config (`name`, `command`, `args`, `env`). The schema is parsed and shown in the agent-info panel today; full MCP client integration is a follow-up task.
 
 ## Privacy Boundary
 

@@ -27,6 +27,11 @@ async def run_conversation_stream(
     profile = profile or load_profile()
     session["messages"].append(provider.format_user(user_message))
 
+    # TODO(mcp): if profile.mcp_servers is non-empty, spawn stdio MCP clients on
+    # first use, list their tools, merge into provider.tools_for_provider(...)'s
+    # catalog, and dispatch matching tool_use_complete events through the MCP
+    # client (rather than run_tool). Out of scope for this task — the schema is
+    # parsed and stored on AgentProfile.mcp_servers, but no client connects yet.
     for hop in range(MAX_TOOL_HOPS):
         tool_calls_pending: list[dict] = []
         stop_reason: str = "end_turn"

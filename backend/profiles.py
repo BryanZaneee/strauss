@@ -4,6 +4,10 @@ Profiles keep persona and knowledge-base choices out of the reusable EasyAgent
 engine. The bundled `strauss` example profile lives under profiles/strauss/, but
 the engine can run another profile by loading a different profile.json + system
 prompt.
+
+The `mcp_servers` field on a profile is parsed and stored, but no MCP client is
+wired up yet — that integration is a follow-up task. See backend/agent.py for
+the planned shape.
 """
 from __future__ import annotations
 
@@ -21,6 +25,7 @@ DEFAULT_PROFILE_TOOLS: tuple[str, ...] = (
     "search_kb",
     "get_resume_summary",
     "get_project_context",
+    "web_search",
 )
 
 
@@ -34,6 +39,7 @@ class AgentProfile:
     welcome: str = ""
     suggestions: tuple[str, ...] = ()
     tools: tuple[str, ...] = DEFAULT_PROFILE_TOOLS
+    mcp_servers: tuple[dict, ...] = ()
 
 
 def _project_path(value: str | None, fallback: Path) -> Path:
@@ -78,4 +84,5 @@ def load_profile(profile_id: str | None = None) -> AgentProfile:
         welcome=cfg.get("welcome", ""),
         suggestions=tuple(cfg.get("suggestions", ())),
         tools=tuple(cfg.get("tools", DEFAULT_PROFILE_TOOLS)),
+        mcp_servers=tuple(cfg.get("mcp_servers", ())),
     )

@@ -143,9 +143,13 @@ def _chunk_parts(chunk: Any) -> list[Any]:
 
 
 def _norm_usage(u: Any) -> dict:
+    # Gemini thinking models report `thoughts_token_count` separately from
+    # `candidates_token_count`. Expose as reasoning_tokens so the UI can show
+    # the breakdown alongside other providers.
     return {
         "input_tokens": getattr(u, "prompt_token_count", 0) or 0,
         "output_tokens": getattr(u, "candidates_token_count", 0) or 0,
+        "reasoning_tokens": getattr(u, "thoughts_token_count", 0) or 0,
         "cache_read_input_tokens": getattr(u, "cached_content_token_count", 0) or 0,
         "cache_creation_input_tokens": 0,
     }
