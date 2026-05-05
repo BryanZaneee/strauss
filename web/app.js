@@ -3,11 +3,113 @@
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 const API_BASE = window.EASYAGENT_API_BASE
-  || window.STRAUSS_API_BASE
   || (LOCAL_HOSTS.has(window.location.hostname) ? "http://127.0.0.1:8001" : "");
 
 const SESSION_KEY = "strauss-session";
 const FIXED_MODEL = "deepseek-v4-flash";
+
+const DEFAULT_AGENT_PRESENTATION = {
+  brand: {
+    accent: "#FF5500",
+    accentDark: "#5C1F00",
+    accentSoft: "#FFE7DA",
+    grid: "rgba(255, 85, 0, 0.13)",
+    mark: "#FF5500",
+  },
+  asciiName: "",
+  asciiAriaLabel: "",
+  introRest: "",
+  face: " [._.]",
+  placeholder: "ask the active agent…",
+};
+
+const AGENT_PRESENTATION = {
+  strauss: {
+    brand: {
+      accent: "#386F3D",
+      accentDark: "#1F4D28",
+      accentSoft: "#E8F3E6",
+      grid: "rgba(56, 111, 61, 0.15)",
+      mark: "#9BD400",
+    },
+    asciiAriaLabel: "Easy Agent - Strauss",
+    face: [
+      " .---.",
+      "( o o )",
+      " \\ ^ /",
+      "  '-'",
+    ].join("\n"),
+    placeholder: "ask Easy Agent - Strauss about Bryan…",
+  },
+  "customer-service": {
+    brand: {
+      accent: "#F0642F",
+      accentDark: "#7A2F17",
+      accentSoft: "#FFF0E7",
+      grid: "rgba(240, 100, 47, 0.13)",
+      mark: "#F0642F",
+    },
+    asciiAriaLabel: "Easy Coffee",
+    face: [
+      "  ( (",
+      " .____.",
+      " |    |]",
+      " '----'",
+    ].join("\n"),
+    placeholder: "ask Easy Coffee about hours, menu, ordering…",
+  },
+  "research-analyst": {
+    brand: {
+      accent: "#2F7DE1",
+      accentDark: "#164F93",
+      accentSoft: "#E6F2FF",
+      grid: "rgba(47, 125, 225, 0.14)",
+      mark: "#2F7DE1",
+    },
+    asciiAriaLabel: "Research Analyst",
+    face: [
+      " .-.",
+      "( o )",
+      " '-'",
+    ].join("\n"),
+    placeholder: "ask Research Analyst to investigate…",
+  },
+  "sales-concierge": {
+    brand: {
+      accent: "#0F7A4A",
+      accentDark: "#07502F",
+      accentSoft: "#E8F7EF",
+      grid: "rgba(15, 122, 74, 0.14)",
+      mark: "#C99A2E",
+    },
+    asciiAriaLabel: "Sales Concierge",
+    face: [
+      " ____",
+      "|$  |",
+      "|___|",
+    ].join("\n"),
+    placeholder: "ask Sales Concierge which EasyAgent package fits…",
+  },
+};
+
+function presentationFor(profileOrId) {
+  const id = String(profileOrId?.id || profileOrId || "").toLowerCase();
+  const label = String(profileOrId?.label || profileOrId?.name || "").toLowerCase();
+  const lookup = `${id} ${label}`;
+  const key = AGENT_PRESENTATION[id]
+    ? id
+    : lookup.includes("coffee") || lookup.includes("customer") ? "customer-service"
+    : lookup.includes("research") || lookup.includes("analyst") ? "research-analyst"
+    : lookup.includes("sales") || lookup.includes("concierge") ? "sales-concierge"
+    : lookup.includes("strauss") ? "strauss"
+    : id;
+  const profile = AGENT_PRESENTATION[key] || {};
+  return {
+    ...DEFAULT_AGENT_PRESENTATION,
+    ...profile,
+    brand: { ...DEFAULT_AGENT_PRESENTATION.brand, ...(profile.brand || {}) },
+  };
+}
 
 const state = {
   profile: null,
@@ -53,6 +155,7 @@ async function init() {
 
   els.form().addEventListener("submit", onSubmit);
   els.newChat().addEventListener("click", onNewChat);
+  els.feed().addEventListener("click", onSuggestionClick);
   els.agentSelect().addEventListener("change", onAgentChange);
 
   renderAgentInfo();
@@ -63,7 +166,7 @@ async function init() {
   }
 }
 
-async function loadProfile(profileId) {
+async function loadProfile(profileId, {animateBrand = false} = {}) {
   try {
     const url = profileId
       ? `${API_BASE}/api/profile?profile_id=${encodeURIComponent(profileId)}`
@@ -71,9 +174,15 @@ async function loadProfile(profileId) {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     state.profile = await res.json();
+    if (state.profile?.id) {
+      applyProfileBrand(state.profile, {animate: animateBrand});
+      updatePlaceholder(state.profile);
+    }
     renderProfileIntro();
+    return true;
   } catch {
     // Keep the static intro if the backend is older or temporarily unavailable.
+    return false;
   }
 }
 
@@ -117,9 +226,14 @@ function populateAgentSelect() {
 async function onAgentChange(e) {
   const newId = e.target.value;
   if (!newId || (state.profile && state.profile.id === newId)) return;
+  const previousId = state.profile?.id;
   setBusy(true);
   try {
-    await loadProfile(newId);
+    const loaded = await loadProfile(newId, {animateBrand: true});
+    if (!loaded) {
+      if (previousId) els.agentSelect().value = previousId;
+      return;
+    }
     state.sessionUsage = {input: 0, output: 0, reasoning: 0, cache_read: 0, tool_hops: 0};
     state.lastTurnUsage = [];
     state.turnTiming = {startedAt: null, firstDeltaAt: null, doneAt: null};
@@ -341,24 +455,149 @@ function appendSystem(text) {
 function renderProfileIntro() {
   const first = els.feed().querySelector(".msg-system");
   if (!first || !state.profile) return;
+  const pres = profilePresentation(state.profile);
   first.innerHTML = "";
 
-  const p = document.createElement("p");
-  p.textContent = state.profile.welcome || state.profile.description || "";
-  first.appendChild(p);
+  const wrap = document.createElement("div");
+  wrap.className = "intro-copy";
+
+  const hello = document.createElement("span");
+  hello.className = "intro-hello";
+  hello.textContent = "Hello, I'm";
+  wrap.appendChild(hello);
+
+  const nameWrap = document.createElement("div");
+  nameWrap.className = "intro-name";
+  const mark = document.createElement("pre");
+  mark.className = "profile-mark";
+  if (pres.asciiAriaLabel) mark.setAttribute("aria-label", pres.asciiAriaLabel);
+  mark.textContent = pres.asciiName || state.profile.label || "";
+  nameWrap.appendChild(mark);
+  const period = document.createElement("span");
+  period.className = "intro-period";
+  period.setAttribute("aria-hidden", "true");
+  period.textContent = ".";
+  nameWrap.appendChild(period);
+  wrap.appendChild(nameWrap);
+
+  const rest = document.createElement("span");
+  rest.className = "intro-rest";
+  rest.textContent = pres.introRest || state.profile.welcome || state.profile.description || "";
+  wrap.appendChild(rest);
+  first.appendChild(wrap);
 
   if (Array.isArray(state.profile.suggestions) && state.profile.suggestions.length) {
-    const hint = document.createElement("p");
+    const hint = document.createElement("div");
     hint.className = "hint";
-    hint.append("Try: ");
-    state.profile.suggestions.forEach((s, i) => {
-      if (i) hint.append(" · ");
-      const em = document.createElement("em");
-      em.textContent = s;
-      hint.appendChild(em);
+    hint.setAttribute("aria-label", "Suggested prompts");
+    const lead = document.createElement("span");
+    lead.textContent = "Try:";
+    hint.appendChild(lead);
+    state.profile.suggestions.forEach(s => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "suggestion-btn";
+      btn.dataset.suggestion = s;
+      btn.textContent = s;
+      hint.appendChild(btn);
     });
     first.appendChild(hint);
   }
+}
+
+function applyProfileBrand(profile, {animate = false} = {}) {
+  const profileId = profile?.id || "";
+  const pres = profilePresentation(profile);
+  const brand = normalizeProfileBrand(profile?.brand, pres.brand);
+  const newAccent = brand.accent;
+  const body = document.body;
+  const prev = body.dataset.profileAccent;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  if (!prev || !animate || reduce) {
+    body.dataset.profile = profileId;
+    body.dataset.profileAccent = newAccent;
+    setProfileBrandVariables(body, brand);
+    updateProfileFace(profileId, pres.face);
+    return;
+  }
+  if (prev === newAccent) {
+    body.dataset.profile = profileId;
+    setProfileBrandVariables(body, brand);
+    updateProfileFace(profileId, pres.face);
+    return;
+  }
+
+  const oldBanner = getComputedStyle(body).getPropertyValue("--accent-banner").trim();
+
+  body.style.setProperty("--accent-banner-prev", oldBanner);
+  body.dataset.profile = profileId;
+  body.dataset.profileAccent = newAccent;
+  setProfileBrandVariables(body, brand);
+
+  void body.offsetWidth;
+  body.classList.add("is-sweeping");
+
+  window.setTimeout(() => {
+    updateProfileFace(profileId, pres.face);
+  }, 620);
+
+  window.setTimeout(() => {
+    body.classList.remove("is-sweeping");
+    body.style.removeProperty("--accent-banner-prev");
+  }, 760);
+}
+
+function profilePresentation(profile) {
+  const pres = presentationFor(profile);
+  const brand = profile?.brand && typeof profile.brand === "object" ? profile.brand : {};
+  return {
+    ...pres,
+    asciiName: brand.intro_ascii_name || pres.asciiName,
+    face: brand.hero_icon || pres.face,
+    placeholder: brand.input_placeholder || pres.placeholder,
+  };
+}
+
+function normalizeProfileBrand(rawBrand, fallback) {
+  const brand = rawBrand && typeof rawBrand === "object" ? rawBrand : {};
+  const source = { ...fallback, ...brand };
+  return {
+    accent: source.accent || fallback.accent,
+    accentDark: source.accent_dark || fallback.accentDark,
+    accentSoft: source.accent_soft || fallback.accentSoft,
+    grid: source.grid || fallback.grid,
+    mark: source.accent_gold || source.mark || fallback.mark || source.accent,
+  };
+}
+
+function setProfileBrandVariables(body, brand) {
+  body.style.setProperty("--profile-accent", brand.accent);
+  body.style.setProperty("--profile-accent-dark", brand.accentDark);
+  body.style.setProperty("--profile-accent-soft", brand.accentSoft);
+  body.style.setProperty("--profile-grid", brand.grid);
+  body.style.setProperty("--profile-mark", brand.mark);
+  body.style.setProperty("--accent-banner", brand.accent);
+}
+
+function updateProfileFace(profileId, faceText) {
+  const face = document.querySelector(".lb-face");
+  if (!face || !faceText) return;
+  face.textContent = faceText;
+  face.dataset.agent = profileId;
+}
+
+function updatePlaceholder(profile) {
+  const input = els.input();
+  if (!input) return;
+  input.placeholder = profilePresentation(profile).placeholder;
+}
+
+function onSuggestionClick(e) {
+  const button = e.target.closest("[data-suggestion]");
+  if (!button || state.inflight) return;
+  els.input().value = button.dataset.suggestion || button.textContent;
+  els.input().focus();
 }
 
 function accumulateUsage(payload) {

@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;1,8..60,400&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="styles.css?v=8" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css" />
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js" defer></script>
@@ -19,7 +19,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer></script>
   <script src="lib/markdown.js?v=1" defer></script>
 </head>
-<body>
+<body data-profile="strauss">
   <header class="hdr">
     <div class="hdr-inner">
       <span class="hdr-mark">EASYAGENT</span>
@@ -29,6 +29,31 @@
       <a class="hdr-link" href="https://bryanzane.com">bryanzane.com</a>
     </div>
   </header>
+
+  <section class="lb-hero">
+    <div class="lb-hero-grid-bg" aria-hidden="true"></div>
+    <div class="lb-hero-inner">
+      <h1 class="lb-banner-h1">
+        <div class="lb-banner-row">
+          <pre class="lb-banner lb-banner-body" aria-label="EasyAgent">
+███████╗ █████╗ ███████╗██╗   ██╗     █████╗  ██████╗ ███████╗███╗   ██╗████████╗
+██╔════╝██╔══██╗██╔════╝╚██╗ ██╔╝    ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝
+█████╗  ███████║███████╗ ╚████╔╝     ███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║
+██╔══╝  ██╔══██║╚════██║  ╚██╔╝      ██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║
+███████╗██║  ██║███████║   ██║       ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║
+╚══════╝╚═╝  ╚═╝╚══════╝   ╚═╝       ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝
+          </pre>
+          <pre class="lb-banner lb-face" data-agent="strauss" aria-hidden="true">
+ .---.
+( o o )
+ \ ^ /
+  '-'
+          </pre>
+        </div>
+      </h1>
+      <p class="lb-tagline">Easy, portable agentic framework for all use cases.</p>
+    </div>
+  </section>
 
   <main class="chat" id="chat">
     <div class="chat-feed" id="chat-feed">
@@ -74,6 +99,6 @@
     </form>
   </main>
 
-  <script src="app.js?v=6" defer></script>
+  <script src="app.js?v=8" defer></script>
 </body>
 </html>
