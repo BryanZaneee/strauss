@@ -12,7 +12,7 @@ the planned shape.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +39,8 @@ class AgentProfile:
     welcome: str = ""
     suggestions: tuple[str, ...] = ()
     tools: tuple[str, ...] = DEFAULT_PROFILE_TOOLS
+    brand: dict[str, Any] = field(default_factory=dict)
+    data_root: Path | None = None
     mcp_servers: tuple[dict, ...] = ()
 
 
@@ -74,6 +76,11 @@ def load_profile(profile_id: str | None = None) -> AgentProfile:
     cfg: dict[str, Any] = json.loads(cfg_path.read_text(encoding="utf-8"))
     system_path = _project_path(cfg.get("system_prompt_path"), profile_dir / "system.md")
     system_prompt = system_path.read_text(encoding="utf-8").strip()
+    data_root = (
+        _project_path(cfg.get("data_root"), profile_dir / "data")
+        if cfg.get("data_root")
+        else None
+    )
 
     return AgentProfile(
         id=cfg.get("id", pid),
@@ -84,5 +91,7 @@ def load_profile(profile_id: str | None = None) -> AgentProfile:
         welcome=cfg.get("welcome", ""),
         suggestions=tuple(cfg.get("suggestions", ())),
         tools=tuple(cfg.get("tools", DEFAULT_PROFILE_TOOLS)),
+        brand=cfg.get("brand", {}),
+        data_root=data_root,
         mcp_servers=tuple(cfg.get("mcp_servers", ())),
     )

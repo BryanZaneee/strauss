@@ -6,6 +6,14 @@
   "system_prompt_path": "profiles/customer-service/system.md",
   "tools": ["list_kb", "read_file", "search_kb"],
   "mcp_servers": [],
+  "brand": {
+    "accent": "#f0642f",
+    "accent_dark": "#7a2f17",
+    "accent_soft": "#fff0e7",
+    "hero_icon": " ((\n [__]\n  ||",
+    "intro_ascii_name": " ___                 ____       __  __          \n| __|__ _ ____  _   / ___|___  / _|/ _| ___ ___ \n| _|/ _` (_-< || | | |   / _ \\| |_| |_ / -_) -_)\n|___\\__,_/__/\\_, | | |__| (_) |  _|  _|  __\\__|\n             |__/   \\____\\___/|_| |_|  \\___|___|",
+    "input_placeholder": "ask Easy Coffee about hours, menu, ordering..."
+  },
   "welcome": "Hi! I'm the Easy Coffee assistant. Ask about hours, the menu, ordering, or events — I'll only answer from what I actually know, and I'll flag a teammate to follow up if I can't help.",
   "suggestions": [
     "What are your hours?",

@@ -16,6 +16,7 @@ from backend.kb_loader import (
     read_file,
     search_kb,
 )
+from backend.profiles import load_profile
 from backend.tools import SCHEMAS, run_tool
 
 
@@ -249,6 +250,23 @@ class _StubResponse:
         return self._payload
 
 
+class _FetchResponse:
+    def __init__(
+        self,
+        status_code: int = 200,
+        *,
+        text: str = "",
+        content_type: str = "text/html; charset=utf-8",
+        url: str = "https://example.com/page",
+        headers: dict | None = None,
+    ):
+        self.status_code = status_code
+        self.text = text
+        self.content = text.encode("utf-8")
+        self.url = url
+        self.headers = {"content-type": content_type, **(headers or {})}
+
+
 class TestWebSearch:
     def test_dispatch_success(self, monkeypatch):
         monkeypatch.setenv("TAVILY_API_KEY", "fake-key")
@@ -288,6 +306,10 @@ class TestWebSearch:
         assert captured["url"].startswith("https://api.tavily.com/")
         assert captured["json"]["api_key"] == "fake-key"
         assert captured["json"]["max_results"] == 3
+        assert result.source_summary == "searched public web, 1 result"
+        assert result.source_items == [
+            {"label": "Web result: fastapi.tiangolo.com", "kind": "web"}
+        ]
 
     def test_missing_api_key_returns_is_error(self, monkeypatch):
         monkeypatch.delenv("TAVILY_API_KEY", raising=False)
@@ -337,3 +359,198 @@ class TestWebSearch:
         )
         assert result.is_error is True
         assert "not enabled" in json.loads(result.content)["error"]
+
+
+# --------------------------------------------------------------------------- #
+# fetch_url_text
+# --------------------------------------------------------------------------- #
+
+class TestFetchUrlText:
+    def test_fetches_public_text_page(self, monkeypatch):
+        import backend.tools as tools
+
+        monkeypatch.setattr(
+            tools.socket,
+            "getaddrinfo",
+            lambda host, port: [(None, None, None, None, ("93.184.216.34", 0))],
+        )
+        monkeypatch.setattr(
+            tools.httpx,
+            "get",
+            lambda *args, **kwargs: _FetchResponse(
+                text="<html><head><title>Example Title</title></head><body><h1>Hello</h1><p>World</p></body></html>"
+            ),
+        )
+
+        result = run_tool(
+            "fetch_url_text",
+            {"url": "https://example.com/page", "max_chars": 40},
+            tool_use_id="fetch1",
+        )
+
+        assert result.is_error is False
+        body = json.loads(result.content)
+        assert body["title"] == "Example Title"
+        assert "Hello World" in body["excerpt"]
+        assert body["content_type"] == "text/html"
+        assert result.source_summary == "fetched public web page"
+        assert result.source_items == [
+            {"label": "Public web page: example.com", "kind": "web_fetch"}
+        ]
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "file:///etc/passwd",
+            "http://localhost:8000",
+            "http://127.0.0.1:8000",
+            "http://10.0.0.5/private",
+            "http://169.254.169.254/latest/meta-data",
+        ],
+    )
+    def test_rejects_unsafe_urls(self, url):
+        result = run_tool("fetch_url_text", {"url": url}, tool_use_id="fetch2")
+        assert result.is_error is True
+
+    def test_rejects_non_text_content(self, monkeypatch):
+        import backend.tools as tools
+
+        monkeypatch.setattr(
+            tools.socket,
+            "getaddrinfo",
+            lambda host, port: [(None, None, None, None, ("93.184.216.34", 0))],
+        )
+        monkeypatch.setattr(
+            tools.httpx,
+            "get",
+            lambda *args, **kwargs: _FetchResponse(
+                text="not really an image",
+                content_type="image/png",
+            ),
+        )
+
+        result = run_tool("fetch_url_text", {"url": "https://example.com/image"}, tool_use_id="fetch3")
+        assert result.is_error is True
+        assert "non-text" in json.loads(result.content)["error"]
+
+
+# --------------------------------------------------------------------------- #
+# calculator
+# --------------------------------------------------------------------------- #
+
+class TestCalculator:
+    @pytest.mark.parametrize(
+        ("operation", "values", "expected"),
+        [
+            ("sum", [1, 2, 3], 6),
+            ("average", [2, 4, 6], 4),
+            ("difference", [5, 9], 4),
+            ("ratio", [4, 10], 2.5),
+            ("percent_change", [100, 125], 25),
+            ("cagr", [100, 121, 2], 10),
+        ],
+    )
+    def test_supported_operations(self, operation, values, expected):
+        result = run_tool(
+            "calculator",
+            {"operation": operation, "values": values},
+            tool_use_id=f"calc-{operation}",
+        )
+        assert result.is_error is False
+        body = json.loads(result.content)
+        assert body["result"] == pytest.approx(expected)
+        assert result.source_summary == "calculated result"
+
+    def test_rejects_arbitrary_expression(self):
+        result = run_tool(
+            "calculator",
+            {"operation": "eval", "values": [1]},
+            tool_use_id="calc-bad",
+        )
+        assert result.is_error is True
+        assert "unsupported" in json.loads(result.content)["error"]
+
+
+# --------------------------------------------------------------------------- #
+# Sales preview tools
+# --------------------------------------------------------------------------- #
+
+class TestSalesPreviewTools:
+    def sales_data_root(self):
+        profile = load_profile("sales-concierge")
+        assert profile.data_root is not None
+        return profile.data_root
+
+    def test_catalog_lookup_reads_profile_catalog(self):
+        result = run_tool(
+            "catalog_lookup",
+            {"query": "sales checkout lead", "max_results": 2},
+            tool_use_id="catalog1",
+            data_root=self.sales_data_root(),
+        )
+        assert result.is_error is False
+        body = json.loads(result.content)
+        assert body["matches"][0]["id"] == "sales-profile"
+        assert body["matches"][0]["price_display"]
+        assert result.source_items == [{"label": "Product catalog", "kind": "catalog"}]
+
+    def test_qualify_lead_is_deterministic(self):
+        result = run_tool(
+            "qualify_lead",
+            {
+                "use_case": "We need sales lead qualification with Stripe checkout",
+                "urgency": "urgent this week",
+                "team_size": "5",
+                "budget_range": "approved 10k",
+                "integrations": ["Stripe", "CRM"],
+            },
+            tool_use_id="qual1",
+            data_root=self.sales_data_root(),
+        )
+        assert result.is_error is False
+        body = json.loads(result.content)
+        assert body["tier"] == "high"
+        assert body["recommended_package_id"] == "sales-profile"
+        assert body["preview_only"] is True
+
+    def test_lead_capture_preview_does_not_persist(self):
+        result = run_tool(
+            "lead_capture_preview",
+            {
+                "name": "Ada Lovelace",
+                "email": "Ada@Example.com",
+                "company": "Analytical Engines",
+                "use_case": "sales concierge",
+                "notes": "preview only",
+            },
+            tool_use_id="lead1",
+        )
+        assert result.is_error is False
+        body = json.loads(result.content)
+        assert body["mock_lead_id"].startswith("lead_preview_")
+        assert body["payload"]["email"] == "ada@example.com"
+        assert body["persisted"] is False
+        assert body["preview_only"] is True
+
+    def test_checkout_link_preview_does_not_call_stripe(self):
+        result = run_tool(
+            "checkout_link_preview",
+            {"package_id": "starter-widget", "billing_cadence": "one_time", "quantity": 2},
+            tool_use_id="checkout1",
+            data_root=self.sales_data_root(),
+        )
+        assert result.is_error is False
+        body = json.loads(result.content)
+        assert body["checkout_url"].startswith("https://checkout.easyagent.example/preview/")
+        assert body["line_items"][0]["quantity"] == 2
+        assert body["stripe_session_created"] is False
+        assert body["preview_only"] is True
+
+    def test_sales_tools_require_data_root(self):
+        result = run_tool(
+            "catalog_lookup",
+            {"query": "sales"},
+            tool_use_id="catalog-missing-root",
+        )
+        assert result.is_error is True
+        assert "data_root" in json.loads(result.content)["error"]

@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import importlib
 import json
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.kb_loader import search_kb
-from backend.profiles import load_profile
+from backend.profiles import AgentProfile, load_profile
 
 
 def test_customer_service_profile_loads():
@@ -17,8 +18,69 @@ def test_customer_service_profile_loads():
     assert p.label == "Customer Service"
     assert p.tools == ("list_kb", "read_file", "search_kb")
     assert p.mcp_servers == ()
+    assert p.brand["accent"] == "#f0642f"
+    assert p.brand["intro_ascii_name"]
+    assert "Easy Coffee" in p.brand["input_placeholder"]
     assert "Easy Coffee" in p.welcome
     assert len(p.suggestions) == 3
+
+
+def test_strauss_profile_brand_loads():
+    p = load_profile("strauss")
+    assert p.brand["accent"] == "#386f3d"
+    assert p.brand["intro_ascii_name"]
+    assert "Strauss" in p.brand["input_placeholder"]
+    assert p.data_root is None
+
+
+def test_research_analyst_profile_loads():
+    p = load_profile("research-analyst")
+    assert p.id == "research-analyst"
+    assert p.label == "Research Analyst"
+    assert p.tools == ("web_search", "fetch_url_text", "calculator")
+    assert p.brand["accent"] == "#2f7de1"
+    assert p.brand["intro_ascii_name"]
+    assert "Research Analyst" in p.brand["input_placeholder"]
+    assert p.data_root is None
+    assert "<workflow>" in p.system_prompt
+    assert "<quality_bar>" in p.system_prompt
+
+
+def test_sales_concierge_profile_loads_with_data_root():
+    p = load_profile("sales-concierge")
+    assert p.id == "sales-concierge"
+    assert p.label == "Sales Concierge"
+    assert p.tools == (
+        "catalog_lookup",
+        "qualify_lead",
+        "lead_capture_preview",
+        "checkout_link_preview",
+        "calculator",
+    )
+    assert p.brand["accent"] == "#0f7a4a"
+    assert p.brand["intro_ascii_name"]
+    assert "Sales Concierge" in p.brand["input_placeholder"]
+    assert p.data_root is not None
+    assert p.data_root.parts[-2:] == ("sales-concierge", "data")
+    assert (p.data_root / "catalog.json").exists()
+    assert "<workflow>" in p.system_prompt
+    assert "<quality_bar>" in p.system_prompt
+
+
+def test_new_profile_smoke_eval_datasets_are_structured():
+    for path in (
+        Path("profiles/research-analyst/evals/smoke.json"),
+        Path("profiles/sales-concierge/evals/smoke.json"),
+    ):
+        cases = json.loads(path.read_text(encoding="utf-8"))
+        assert len(cases) >= 3
+        for case in cases:
+            assert case["id"]
+            assert case["task"]
+            assert isinstance(case["expected_tools"], list)
+            assert case["expected_tools"]
+            assert isinstance(case["criteria"], list)
+            assert case["criteria"]
 
 
 def test_customer_service_kb_root_resolves_to_profile_dir():
@@ -50,6 +112,7 @@ def test_mcp_servers_field_round_trips(tmp_path, monkeypatch):
     fake_root.mkdir()
     profile_dir = fake_root / "fixture-cs"
     profile_dir.mkdir()
+    (profile_dir / "data").mkdir()
 
     (profile_dir / "system.md").write_text("test prompt")
     (profile_dir / "profile.json").write_text(json.dumps({
@@ -59,6 +122,8 @@ def test_mcp_servers_field_round_trips(tmp_path, monkeypatch):
         "kb_root": "kb",
         "system_prompt_path": str(profile_dir / "system.md"),
         "tools": ["search_kb"],
+        "brand": {"accent": "#123456"},
+        "data_root": str(profile_dir / "data"),
         "mcp_servers": [
             {"name": "calendar", "command": "npx", "args": ["-y", "@x/cal"], "env": {}},
             {"name": "crm", "command": "/usr/bin/foo", "args": [], "env": {"K": "v"}},
@@ -73,6 +138,8 @@ def test_mcp_servers_field_round_trips(tmp_path, monkeypatch):
     assert len(p.mcp_servers) == 2
     assert p.mcp_servers[0]["name"] == "calendar"
     assert p.mcp_servers[1]["env"] == {"K": "v"}
+    assert p.brand == {"accent": "#123456"}
+    assert p.data_root == (profile_dir / "data").resolve()
 
 
 # --------------------------------------------------------------------------- #
@@ -99,7 +166,7 @@ def test_api_profiles_lists_both_bundled_profiles(client):
     body = r.json()
     assert "default" in body
     ids = {p["id"] for p in body["profiles"]}
-    assert {"strauss", "customer-service"} <= ids
+    assert {"strauss", "customer-service", "research-analyst", "sales-concierge"} <= ids
 
 
 def test_api_profiles_includes_tools_and_mcp_servers(client):
@@ -109,3 +176,45 @@ def test_api_profiles_includes_tools_and_mcp_servers(client):
     assert cs["label"] == "Customer Service"
     assert cs["tools"] == ["list_kb", "read_file", "search_kb"]
     assert cs["mcp_servers"] == []
+    assert cs["brand"]["accent"] == "#f0642f"
+
+
+def test_api_profile_includes_allowed_tool_schemas(client):
+    r = client.get("/api/profile?profile_id=customer-service")
+    assert r.status_code == 200
+    body = r.json()
+
+    assert body["tools"] == ["list_kb", "read_file", "search_kb"]
+    assert body["brand"]["accent"] == "#f0642f"
+    schemas = body["tool_schemas"]
+    assert [schema["name"] for schema in schemas] == body["tools"]
+    assert schemas[0]["input_schema"]["type"] == "object"
+    assert {schema["name"] for schema in schemas}.isdisjoint({
+        "get_resume_summary",
+        "get_project_context",
+        "web_search",
+    })
+
+
+def test_api_profile_skips_missing_tool_schemas(client, monkeypatch, tmp_path):
+    from backend import app as app_module
+
+    monkeypatch.setattr(
+        app_module,
+        "get_profile",
+        lambda profile_id="test": AgentProfile(
+            id="test",
+            label="Test",
+            description="Missing schema profile",
+            kb_root=tmp_path,
+            system_prompt="test",
+            tools=("list_kb", "missing_tool", "search_kb"),
+        ),
+    )
+
+    r = client.get("/api/profile?profile_id=test")
+    assert r.status_code == 200
+    body = r.json()
+
+    assert body["tools"] == ["list_kb", "missing_tool", "search_kb"]
+    assert [schema["name"] for schema in body["tool_schemas"]] == ["list_kb", "search_kb"]

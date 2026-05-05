@@ -1,0 +1,23 @@
+{
+  "id": "research-analyst",
+  "label": "Research Analyst",
+  "description": "Sourced research agent for public-web discovery, page inspection, and numeric comparison.",
+  "kb_root": "profiles/research-analyst/kb",
+  "system_prompt_path": "profiles/research-analyst/system.md",
+  "tools": ["web_search", "fetch_url_text", "calculator"],
+  "mcp_servers": [],
+  "brand": {
+    "accent": "#2f7de1",
+    "accent_dark": "#164f93",
+    "accent_soft": "#e6f2ff",
+    "hero_icon": " .-.\n( o )\n '-'",
+    "intro_ascii_name": " ____                                _     \n|  _ \\ ___  ___  ___  __ _ _ __ ___| |__  \n| |_) / _ \\/ __|/ _ \\/ _` | '__/ __| '_ \\ \n|  _ <  __/\\__ \\  __/ (_| | | | (__| | | |\n|_| \\_\\___||___/\\___|\\__,_|_|  \\___|_| |_|",
+    "input_placeholder": "ask Research Analyst to investigate..."
+  },
+  "welcome": "I research public topics with sourced web results, page excerpts, and explicit calculations. I separate what sources say from my analysis.",
+  "suggestions": [
+    "Research the market for AI support agents",
+    "Compare reusable agent framework competitors",
+    "Find recent news about model provider tooling"
+  ]
+}

@@ -81,6 +81,65 @@ def make_test_profile(kb_root) -> AgentProfile:
     )
 
 
+def assert_public_source_metadata_is_safe(tool_result: dict, kb_root) -> None:
+    public = {
+        "source_summary": tool_result["source_summary"],
+        "source_items": tool_result["source_items"],
+        "source_count": tool_result["source_count"],
+        "hidden_count": tool_result["hidden_count"],
+    }
+    assert isinstance(public["source_items"], list)
+    for item in public["source_items"]:
+        assert set(item) == {"label", "kind"}
+    blob = json.dumps(public, ensure_ascii=False)
+    assert "/" not in blob
+    assert "\\" not in blob
+    for fragment in (
+        "resume.md",
+        "widget.md",
+        "faq.md",
+        "widget.xml",
+        "../../../",
+        "etc/passwd",
+        str(kb_root),
+    ):
+        assert fragment not in blob
+
+
+async def collect_single_tool_result(
+    *,
+    kb_root,
+    tool_name: str,
+    arguments: dict,
+) -> dict:
+    provider = FakeProvider(
+        [
+            [
+                {"type": "tool_use_complete", "tool_use_id": f"tu_{tool_name}",
+                 "name": tool_name, "arguments": arguments},
+                {"type": "message_done", "stop_reason": "tool_use"},
+            ],
+            [
+                {"type": "text_delta", "text": "Done."},
+                {"type": "message_done", "stop_reason": "end_turn"},
+            ],
+        ]
+    )
+    session = {"messages": []}
+    events = await collect(
+        run_conversation_stream(
+            f"run {tool_name}",
+            session,
+            provider,
+            model="claude-sonnet-4-5",
+            profile=make_test_profile(kb_root),
+        )
+    )
+    tool_results = [e for e in events if e["event"] == "tool_result"]
+    assert len(tool_results) == 1
+    return tool_results[0]
+
+
 # --------------------------------------------------------------------------- #
 # Tests
 # --------------------------------------------------------------------------- #
@@ -180,7 +239,11 @@ class TestOneToolHop:
         tool_results = [e for e in events if e["event"] == "tool_result"]
         assert len(tool_results) == 1
         assert tool_results[0]["tool_use_id"] == "tu_001"
+        assert tool_results[0]["name"] == "get_resume_summary"
         assert tool_results[0]["is_error"] is False
+        assert tool_results[0]["source_summary"] == "read Resume"
+        assert tool_results[0]["source_items"] == [{"label": "Resume", "kind": "kb_read"}]
+        assert_public_source_metadata_is_safe(tool_results[0], kb_root)
 
         # Real tool ran against the fixture KB.
         assert len(provider.tool_results_received) == 1
@@ -237,6 +300,45 @@ class TestOneToolHop:
         # The loop still completed normally (turn 2 ran, done emitted).
         assert provider.turn_index == 2
         assert any(e["event"] == "done" for e in events)
+
+        assert tool_results[0]["source_summary"] == "source unavailable"
+        assert tool_results[0]["source_items"] == []
+        assert tool_results[0]["source_count"] == 0
+        assert tool_results[0]["hidden_count"] == 0
+        assert_public_source_metadata_is_safe(tool_results[0], kb_root)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("tool_name", "arguments", "expected_label", "expected_kind", "summary_prefix"),
+        [
+            ("get_resume_summary", {}, "Resume", "kb_read", "read Resume"),
+            ("get_project_context", {"project_name": "widget"}, "Project: Widget", "kb_read", "read Project: Widget"),
+            ("read_file", {"path": "resume/resume.md"}, "Resume", "kb_read", "read Resume"),
+            ("search_kb", {"query": "zonkletcheese-42"}, "Portfolio knowledge base", "kb_search", "searched"),
+            ("list_kb", {"subdir": ""}, "Knowledge base index", "kb_list", "listed"),
+        ],
+    )
+    async def test_tool_result_source_metadata_is_sanitized(
+        self,
+        kb_root,
+        tool_name,
+        arguments,
+        expected_label,
+        expected_kind,
+        summary_prefix,
+    ):
+        result = await collect_single_tool_result(
+            kb_root=kb_root,
+            tool_name=tool_name,
+            arguments=arguments,
+        )
+
+        assert result["is_error"] is False
+        assert result["source_summary"].startswith(summary_prefix)
+        assert result["source_count"] >= 1
+        assert result["hidden_count"] >= 0
+        assert {"label": expected_label, "kind": expected_kind} in result["source_items"]
+        assert_public_source_metadata_is_safe(result, kb_root)
 
 
 class TestUsageCategorization:

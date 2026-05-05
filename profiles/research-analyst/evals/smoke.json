@@ -1,0 +1,32 @@
+[
+  {
+    "id": "research-current-market",
+    "task": "Research the current market for AI customer-support agents and summarize three sourced findings.",
+    "expected_tools": ["web_search"],
+    "criteria": [
+      "Uses current public sources",
+      "Separates evidence from analyst judgment",
+      "Includes source URLs"
+    ]
+  },
+  {
+    "id": "research-page-inspection",
+    "task": "Inspect this public page and summarize the most relevant claims: https://example.com/research-report",
+    "expected_tools": ["fetch_url_text"],
+    "criteria": [
+      "Fetches the provided URL or explains why it cannot",
+      "Does not infer unsupported details",
+      "Keeps the answer concise"
+    ]
+  },
+  {
+    "id": "research-calculation",
+    "task": "A market grew from 120 to 180 over three years. Calculate the CAGR and explain what it means.",
+    "expected_tools": ["calculator"],
+    "criteria": [
+      "Uses calculator instead of mental math",
+      "States the input values",
+      "Explains the result in plain language"
+    ]
+  }
+]

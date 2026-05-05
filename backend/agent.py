@@ -90,12 +90,22 @@ async def run_conversation_stream(
                 tc["arguments"],
                 tc["tool_use_id"],
                 root=profile.kb_root,
+                data_root=profile.data_root,
                 allowed_tools=profile.tools,
             )
             for tc in tool_calls_pending
         ]
         for r in results:
-            yield {"event": "tool_result", "tool_use_id": r.tool_use_id, "is_error": r.is_error}
+            yield {
+                "event": "tool_result",
+                "tool_use_id": r.tool_use_id,
+                "name": r.name,
+                "is_error": r.is_error,
+                "source_summary": r.source_summary,
+                "source_items": r.source_items,
+                "source_count": r.source_count,
+                "hidden_count": r.hidden_count,
+            }
         provider.append_tool_results(session["messages"], results)
 
     yield {"event": "error", "message": f"hit MAX_TOOL_HOPS={MAX_TOOL_HOPS}"}

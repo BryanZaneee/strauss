@@ -1,4 +1,4 @@
-"""FastAPI app: POST /api/chat (SSE), GET /api/health, GET /api/models, GET /api/budget.
+"""FastAPI app endpoints for chat SSE, health, models, profile, and budget.
 
 Sessions live in-memory; stale ones are swept lazily at the top of each chat request.
 Provider lookup goes through `get_provider()` so tests can monkeypatch it.
@@ -43,6 +43,7 @@ from backend.logging_config import configure_logging
 from backend.providers.anthropic_provider import AnthropicProvider
 from backend.providers.base import LLMProvider
 from backend.profiles import AgentProfile, load_profile
+from backend.tools import schemas_for_tools
 
 configure_logging(level=getattr(logging, LOG_LEVEL.upper(), logging.INFO))
 log = logging.getLogger("easyagent")
@@ -164,6 +165,8 @@ async def profile(profile_id: str = DEFAULT_PROFILE) -> dict:
         "welcome": p.welcome,
         "suggestions": list(p.suggestions),
         "tools": list(p.tools),
+        "tool_schemas": schemas_for_tools(p.tools),
+        "brand": p.brand,
         "mcp_servers": [s.get("name", "") for s in p.mcp_servers if isinstance(s, dict)],
     }
 
@@ -185,6 +188,7 @@ async def list_profiles() -> dict:
                 "label": p.label,
                 "description": p.description,
                 "tools": list(p.tools),
+                "brand": p.brand,
                 "mcp_servers": [s.get("name", "") for s in p.mcp_servers if isinstance(s, dict)],
             })
     return {"default": DEFAULT_PROFILE, "profiles": out}

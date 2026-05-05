@@ -61,4 +61,17 @@ The `name` becomes a prefix on the tool names exposed by that MCP server (so the
 
 ## Branding / theming
 
-The web widget's colors, fonts, and chrome are global today (`web/styles.css`). Per-profile theming is not in scope yet — your customer-service profile will render inside the EasyAgent default chrome.
+Profiles can include optional brand metadata for the web UI to consume:
+
+```json
+"brand": {
+  "accent": "#f0642f",
+  "accent_dark": "#7a2f17",
+  "accent_soft": "#fff0e7",
+  "hero_icon": " ((\n [__]",
+  "intro_ascii_name": "Easy Coffee",
+  "input_placeholder": "ask Easy Coffee about hours, menu, ordering..."
+}
+```
+
+The backend exposes this through `/api/profile` and `/api/profiles`. Full frontend theming support is intentionally a separate web pass; until that lands, treat these fields as profile metadata that future UI work can render consistently.

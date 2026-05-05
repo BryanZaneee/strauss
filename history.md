@@ -8,6 +8,74 @@ the source code alone. New decisions go at the top, dated. Each entry should ans
 
 ---
 
+## 2026-05-05 — Web banner sweep matches production
+
+### Decision: Agent switches reuse the production EasyAgent color wipe
+**Choice:** The standalone `web/` frontend now includes the same large `EASY AGENT` ASCII hero used on bryanzane.com, with the production-style `--accent-banner-prev` gradient wipe and delayed mascot swap when the active profile changes. Initial profile load applies the brand directly; only successful agent switches animate.
+
+**Why:** The production page already established the intended interaction: switching agents should feel like the banner is being recolored left-to-right, while the profile mascot changes as the sweep reaches it. The dev/source frontend needs to preserve that behavior so new Research and Sales profiles can be reviewed before deploy without drifting from prod.
+
+**Rejected:** Designing a new transition or letting profile-brand updates snap instantly in the dev UI. The animation is already part of the EasyAgent visual language, so the source frontend should match it rather than become a separate reference.
+
+## 2026-05-05 — Research and sales profiles use native preview tools
+
+### Decision: Profile branding metadata ships before the frontend renderer
+**Choice:** `AgentProfile` now carries optional `brand` metadata and optional `data_root`, and `/api/profile` plus `/api/profiles` return that metadata alongside the existing tool allowlist. Strauss, Customer Service, Research Analyst, and Sales Concierge all declare brand values even though the frontend rendering pass is separate.
+
+**Why:** The visual direction is profile-specific: ASCII intro names, banner icons, accent colors, and placeholders change with the active agent. Keeping that as backend profile data preserves the profile/engine split and gives the future web pass one stable contract instead of hardcoded profile branches.
+
+**Rejected:** Baking the new Research and Sales visual identity directly into CSS or JavaScript first. That would make the demo look right but leave no portable profile contract for future agents.
+
+### Decision: New non-KB capabilities start as native safe tools
+**Choice:** Research Analyst uses the existing server-side Tavily `web_search` plus native `fetch_url_text` and `calculator` tools. Sales Concierge uses native catalog lookup, lead qualification, lead-capture preview, checkout-link preview, and calculator tools backed by `profiles/sales-concierge/data/catalog.json`.
+
+**Why:** These profiles need to prove EasyAgent can do more than read KB markdown, but the first implementation still needs to be deterministic, testable, and safe in a public demo. Native tools fit that slice because they use the existing schema translation, profile allowlists, source metadata, and provider loop.
+
+**Rejected:** Wiring live Stripe, CRM, calendar, or MCP integrations in the first pass. Sales preview tools intentionally do not persist leads, send email, import Stripe, or create Checkout Sessions. MCP remains the right future shape for larger external tool surfaces, but the runtime does not connect MCP clients yet.
+
+### Decision: New profile prompts carry workflow and smoke-eval expectations
+**Choice:** Research Analyst and Sales Concierge system prompts use explicit XML sections for role, mission, grounding rules, tool-use rules, workflow, response style, and quality bar. Each profile also has a small `evals/smoke.json` dataset naming representative tasks, expected tools, and objective criteria.
+
+**Why:** Tool-heavy agents need more than a persona. The workflow sections tell the model when to search, fetch, calculate, qualify, preview, ask a clarifying question, or stop. The smoke datasets make future prompt/tool changes testable instead of relying on a couple manual chats.
+
+**Rejected:** Leaving evaluation guidance only in global docs. The global rules are useful, but profile behavior changes happen inside profile packages, so the smoke prompts need to live beside the system prompt they protect.
+
+## 2026-05-05 — Agent details can inspect active tool schemas
+
+### Decision: Tool transparency uses profile-scoped schema JSON
+**Choice:** `/api/profile` now includes `tool_schemas` for only the active profile's allowed tools, and the web agent-details panel renders each tool name as a button that opens the canonical Anthropic-shaped schema JSON.
+
+**Why:** Tool visibility belongs beside profile metadata because tools are part of what makes one agent profile different from another. Returning the shared schema shape keeps the UI honest about the source of truth while avoiding provider-specific translations that would make the same tool look different depending on the selected model.
+
+**Follow-up:** `schemas_for_tools(...)` skips unknown tool names instead of raising, so `/api/profile` can still return the profile's full tool allowlist while omitting only schemas that are not authored in `SCHEMAS`. The frontend can then render those mismatches as disabled/unavailable chips.
+
+**Rejected:** Adding a separate public endpoint that dumps every tool in `SCHEMAS`. That would be handy for debugging, but it blurs the profile allowlist boundary and could imply disabled tools are available to the current agent.
+
+## 2026-05-05 — Chat chrome keeps usage and controls persistent
+
+### Decision: Session usage lives in the header chrome
+**Choice:** The web UI now mirrors the session token summary into the sticky EasyAgent header beside the banner while retaining the detailed values in the expandable agent panel.
+
+**Why:** Token usage is operational status, not profile metadata. Keeping the compact counter in the page chrome makes it visible throughout long answers and while the bottom composer is focused, without requiring visitors to open the agent details panel.
+
+**Rejected:** Leaving the only session counter inside `agent details`. That kept the implementation simple, but it hid the most useful cost/status signal behind a collapsible panel that could scroll out of view during longer conversations.
+
+### Decision: The composer is fixed to the viewport bottom
+**Choice:** The agent switcher, model chip, new-chat action, details panel, and message input now sit in a fixed bottom composer with extra message-feed padding so long responses scroll behind it instead of carrying it away.
+
+**Why:** The chat page is meant to feel like a persistent terminal/chat surface. Users should be able to switch agent profiles or send the next prompt without scrolling back to the bottom after reading through a long answer.
+
+**Rejected:** Relying on `position: sticky` inside the main chat column. Sticky positioning only holds within its container's scroll context and could still feel like part of the transcript rather than permanent app chrome.
+
+## 2026-05-05 — Tool results expose safe source labels, not KB paths
+
+### Decision: SSE tool-result metadata is public and sanitized
+**Choice:** `tool_result` events now include browser-facing source metadata (`source_summary`, `source_items`, `source_count`, and `hidden_count`) derived after tool execution. The model still receives the full raw tool result through `ToolResult.content`, but public clients only receive category-level labels such as `Resume`, `Project: Widget`, `Portfolio knowledge base`, `Knowledge base index`, or public web domains.
+
+**Why:** Visitors should be able to tell when the agent grounded an answer in a resume, project note, KB search, or web result. Raw KB paths are useful for debugging, but on a public portfolio they reveal private knowledge-base shape, filenames, and codebase dump organization that the browser does not need.
+
+**Rejected:** Streaming relative KB paths and line ranges as a transparency feature. Even when paths are safely resolved under the KB root, they can still expose internal file naming and private organization. The public contract is evidence transparency, not filesystem observability.
+
 ## 2026-04-29 — Commit message convention wording
 
 ### Decision: Agent guidance names the commit format explicitly

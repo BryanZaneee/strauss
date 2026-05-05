@@ -1,0 +1,91 @@
+{
+  "name": "EasyAgent demo catalog",
+  "currency": "USD",
+  "packages": [
+    {
+      "id": "starter-widget",
+      "name": "Starter Website Widget",
+      "category": "website",
+      "description": "A focused EasyAgent chat widget backed by a small curated knowledge base and one profile.",
+      "best_for": "Small businesses or portfolio sites that need a grounded assistant without live business-system integrations.",
+      "price_display": "Demo estimate: from $750 setup",
+      "timeline": "1-2 weeks",
+      "features": [
+        "Profile prompt and welcome copy",
+        "Markdown knowledge base",
+        "Server-side model provider keys",
+        "Basic rate-limit and budget guardrails"
+      ],
+      "keywords": ["website", "widget", "support", "portfolio", "starter", "kb"],
+      "next_step": "Collect business FAQs, service details, and preferred tone."
+    },
+    {
+      "id": "research-profile",
+      "name": "Research Analyst Profile",
+      "category": "profile",
+      "description": "A public-research profile with web search, safe page fetching, and deterministic calculation tools.",
+      "best_for": "Teams that need repeatable market scans, competitor summaries, sourcing, and lightweight analysis.",
+      "price_display": "Demo estimate: from $1,200 setup",
+      "timeline": "1-2 weeks",
+      "features": [
+        "Research-focused system prompt",
+        "Tavily web search integration",
+        "Safe public page fetches",
+        "Calculation helper for comparisons"
+      ],
+      "keywords": ["research", "analyst", "market", "competitor", "brief", "web"],
+      "next_step": "Define the research domains, source quality bar, and preferred brief format."
+    },
+    {
+      "id": "sales-profile",
+      "name": "Sales Concierge Profile",
+      "category": "profile",
+      "description": "A sales assistant profile that explains packages, qualifies visitors, and previews lead and checkout flows.",
+      "best_for": "Consultants, agencies, and SaaS teams that want a guided product-selection experience.",
+      "price_display": "Demo estimate: from $1,500 setup",
+      "timeline": "1-3 weeks",
+      "features": [
+        "Structured product catalog",
+        "Lead qualification rules",
+        "Preview-only lead capture",
+        "Preview-only checkout links"
+      ],
+      "keywords": ["sales", "lead", "pricing", "checkout", "package", "concierge"],
+      "next_step": "Provide packages, qualification criteria, and human handoff rules."
+    },
+    {
+      "id": "custom-tools",
+      "name": "Custom Tool Integration",
+      "category": "tools",
+      "description": "A scoped native tool integration for systems such as Stripe, calendars, CRMs, internal APIs, or document stores.",
+      "best_for": "Workflows that need the agent to do more than answer from a knowledge base.",
+      "price_display": "Demo estimate: from $2,500 per tool surface",
+      "timeline": "2-4 weeks",
+      "features": [
+        "Server-side credentials",
+        "Tool schema and dispatcher",
+        "Profile allowlist controls",
+        "Mocked tests and failure handling"
+      ],
+      "keywords": ["tool", "api", "integration", "stripe", "calendar", "crm", "mcp"],
+      "next_step": "Choose the first external system and define allowed read/write actions."
+    },
+    {
+      "id": "production-hardening",
+      "name": "Production Hardening",
+      "category": "operations",
+      "description": "Operational safeguards for deploying EasyAgent in a public or client-facing environment.",
+      "best_for": "Teams preparing to expose a profile to real users and real traffic.",
+      "price_display": "Demo estimate: from $2,000",
+      "timeline": "1-3 weeks",
+      "features": [
+        "Per-IP rate limits",
+        "Daily token budgets",
+        "Structured logs",
+        "Deployment runbook and smoke prompts"
+      ],
+      "keywords": ["production", "deploy", "security", "logging", "rate", "budget"],
+      "next_step": "Confirm deployment target, traffic expectations, and incident handoff path."
+    }
+  ]
+}

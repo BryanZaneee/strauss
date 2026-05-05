@@ -157,6 +157,51 @@ class TestChat:
         assert "event: usage" in kinds
         assert kinds[-1] == "event: done"
 
+    def test_streams_sanitized_tool_sources(self, client, monkeypatch, kb_root):
+        c, app_module = client
+
+        fake = FakeProvider(
+            [
+                [
+                    {"type": "tool_use_complete", "tool_use_id": "tu_read",
+                     "name": "read_file", "arguments": {"path": "resume/resume.md"}},
+                    {"type": "message_done", "stop_reason": "tool_use"},
+                ],
+                [
+                    {"type": "text_delta", "text": "Done."},
+                    {"type": "message_done", "stop_reason": "end_turn"},
+                ],
+            ]
+        )
+        profile = AgentProfile(
+            id="test",
+            label="Test",
+            description="Test profile",
+            kb_root=kb_root,
+            system_prompt="test-system",
+        )
+        monkeypatch.setattr(app_module, "get_provider", lambda mid: fake)
+        monkeypatch.setattr(app_module, "get_profile", lambda profile_id="test": profile)
+
+        with c.stream(
+            "POST",
+            "/api/chat",
+            json={
+                "session_id": "s-tool-sources",
+                "message": "read resume",
+                "model": "claude-sonnet-4-5",
+                "profile": "test",
+            },
+        ) as r:
+            assert r.status_code == 200
+            body = b"".join(r.iter_bytes()).decode("utf-8")
+
+        assert "event: tool_result" in body
+        assert '"source_items": [{"label": "Resume", "kind": "kb_read"}]' in body
+        assert "resume/resume.md" not in body
+        assert "resume.md" not in body
+        assert str(kb_root) not in body
+
     def test_session_state_grows(self, client, monkeypatch):
         c, app_module = client
 

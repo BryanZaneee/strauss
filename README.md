@@ -4,7 +4,12 @@ EasyAgent is a portable framework for building reusable agentic AI apps across d
 
 The goal is simple: define an agent profile, give it a focused local knowledge base and toolset, then run it through Claude, OpenAI, Gemini, Kimi, or DeepSeek without rewriting the workflow each time.
 
-`profiles/strauss/` is the bundled showcase profile (the personal-site agent for [bryanzane.com/strauss](https://bryanzane.com/strauss/)). `profiles/customer-service/` is a second bundled profile — a tier-1 in-widget customer-service agent for a fictional small business (Lantern Lane Coffee) that ships with realistic KB content and a `TEMPLATE.md` describing what to swap to adapt it for a real business. Use either as a template for your own profiles.
+Bundled profiles:
+
+- `profiles/strauss/` — the showcase personal-site profile for [bryanzane.com/strauss](https://bryanzane.com/strauss/).
+- `profiles/customer-service/` — a tier-1 in-widget customer-service agent for a fictional coffee shop, with realistic KB content and an adaptation `TEMPLATE.md`.
+- `profiles/research-analyst/` — a public research profile with web search, safe page fetching, and deterministic calculations.
+- `profiles/sales-concierge/` — an EasyAgent sales profile with catalog lookup, lead qualification, and preview-only lead/checkout flows.
 
 The web chat widget includes an **agent switcher** in the controls strip — pick a profile from the dropdown to see how its persona, tools, MCP servers, and per-turn token usage differ. Switching resets the conversation.
 
@@ -23,6 +28,7 @@ I use it personally on my site (Strauss profile), but the framework is meant to 
 - Keeps API keys on the server, never in the browser
 - Uses profile-specific prompts, KB roots, and tool allowlists
 - Reads/searches local knowledge bases instead of relying on model memory
+- Supports native non-KB tools, such as public URL fetches, calculators, catalog lookup, lead qualification, and preview-only checkout links
 - Preserves provider-specific protocol details, such as DeepSeek thinking-mode `reasoning_content`, inside the server only
 - Adds production guardrails: per-IP chat rate limits, daily token budget tracking, active-session caps, and structured JSON logs
 - Keeps the core agent loop small enough to understand and change
@@ -38,8 +44,17 @@ Adding a new agent profile is straightforward and does not require git branches.
      "id": "my-agent",
      "label": "My Custom Agent",
      "kb_root": "kb/my-agent-kb",
+     "data_root": "profiles/my-agent/data",
      "system_prompt_path": "profiles/my-agent/system.md",
-     "tools": ["list_kb", "read_file", "search_kb"]
+     "tools": ["list_kb", "read_file", "search_kb"],
+     "brand": {
+       "accent": "#386f3d",
+       "accent_dark": "#1f4d28",
+       "accent_soft": "#e8f3e6",
+       "hero_icon": "(..)",
+       "intro_ascii_name": "My Agent",
+       "input_placeholder": "ask My Agent..."
+     }
    }
    ```
 3. **Add `system.md`:** Write the system prompt defining the agent's persona.
@@ -47,6 +62,18 @@ Adding a new agent profile is straightforward and does not require git branches.
 To use the new profile, change `DEFAULT_PROFILE=my-agent` in your `.env` file and restart the server, or pick it from the agent switcher dropdown in the web UI without changing the default.
 
 `profile.json` also accepts an `mcp_servers` array — each entry mirrors the standard MCP stdio config (`name`, `command`, `args`, `env`). The schema is parsed and shown in the agent-info panel today; full MCP client integration is a follow-up task.
+
+### Native tools vs. MCP tools
+
+Native tools live in `backend/tools.py`. They are authored once in the shared Anthropic-shaped `SCHEMAS`, translated by provider adapters, dispatched through `run_tool`, and exposed only when a profile lists the tool in `profile.json`.
+
+Use native tools for small, stable server-owned capabilities that should be easy to test in this repo: KB reads, Tavily web search, public URL fetches, deterministic calculators, catalog lookups, lead qualification, and preview-only checkout links.
+
+Use `mcp_servers` for future tool surfaces that should come from an external MCP server, such as calendar, CRM, Drive, Notion, Stripe, or browser automation. The profile schema already stores those server declarations, but the EasyAgent runtime does not connect to MCP servers yet.
+
+The Sales Concierge profile intentionally uses safe demo tools. `lead_capture_preview` does not persist to a CRM, and `checkout_link_preview` does not import Stripe or create a live Checkout Session. A production Stripe integration should use server-side credentials and Stripe Checkout Sessions with Prices.
+
+The Research Analyst and Sales Concierge profiles also ship small smoke datasets under `profiles/<id>/evals/smoke.json`. Keep those close to the profile prompts and update them whenever tool sequencing, prompt structure, or output expectations change.
 
 ## Privacy Boundary
 
@@ -80,6 +107,7 @@ OPENAI_API_KEY=...
 GEMINI_API_KEY=...
 MOONSHOT_API_KEY=...
 DEEPSEEK_API_KEY=...
+TAVILY_API_KEY=...  # optional; needed for web_search / Research Analyst
 ```
 
 All keys stay server-side. Browser clients call the FastAPI server over SSE; they never receive provider credentials.

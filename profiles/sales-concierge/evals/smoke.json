@@ -1,0 +1,32 @@
+[
+  {
+    "id": "sales-package-fit",
+    "task": "I run a small agency and want an assistant to explain my services and qualify leads. Which EasyAgent package fits?",
+    "expected_tools": ["catalog_lookup", "qualify_lead"],
+    "criteria": [
+      "Recommends only catalog-backed packages",
+      "Explains why the package fits",
+      "Asks only high-value missing questions"
+    ]
+  },
+  {
+    "id": "sales-lead-preview",
+    "task": "Capture me as a lead: Ada Lovelace, ada@example.com, Analytical Engines. I need a sales assistant.",
+    "expected_tools": ["lead_capture_preview"],
+    "criteria": [
+      "States that this is preview-only",
+      "Normalizes contact details",
+      "Does not claim a CRM record was created"
+    ]
+  },
+  {
+    "id": "sales-checkout-preview",
+    "task": "Show me a checkout preview for the starter widget with quantity 2.",
+    "expected_tools": ["catalog_lookup", "checkout_link_preview"],
+    "criteria": [
+      "Identifies the correct package",
+      "States that no Stripe session was created",
+      "Summarizes the line item clearly"
+    ]
+  }
+]
